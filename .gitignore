@@ -1,0 +1,9 @@
+__pycache__/
+.vscode/
+*.db
+*.csv
+*.fa
+*.gff3
+*.bt2
+*.fai
+*.pt

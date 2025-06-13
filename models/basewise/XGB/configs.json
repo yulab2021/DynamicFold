@@ -1,0 +1,12 @@
+{
+    "DatasetCSV": "../../data/assembly/assembly.csv",
+    "FeatureList": ["A", "C", "G", "U", "RD", "ER", "MR"],
+    "OutputDir": "XGB",
+    "TestSize": 0.15,
+    "Seed": 42,
+    "NumCores": 4,
+    "ParameterGrid": {
+        "XGB__n_estimators": [4, 8, 16, 32, 64, 128, 256],
+        "XGB__max_depth": [2, 4, 6, 8]
+    }
+}

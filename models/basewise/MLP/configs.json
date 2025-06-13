@@ -1,0 +1,14 @@
+{
+    "DatasetCSV": "../../data/assembly/assembly.csv",
+    "FeatureList": ["A", "C", "G", "U", "RD", "ER", "MR"],
+    "OutputDir": "MLP",
+    "TestSize": 0.15,
+    "Seed": 42,
+    "NumCores": 4,
+    "Solver": "adam",
+    "MaxIter": 256,
+    "ParameterGrid": {
+        "MLP__hidden_layer_sizes": [[4], [16], [64], [256], [4, 4], [16, 16], [64, 64], [256, 256]],
+        "MLP__activation": ["identity", "relu", "logistic", "tanh"]
+    }
+}

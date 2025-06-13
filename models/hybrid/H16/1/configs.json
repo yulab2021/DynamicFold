@@ -1,0 +1,39 @@
+{
+    "Mode": "New",
+    "Module": "H16",
+    "Model": "H16",
+    "Optimizer": "Adam",
+    "DatasetArgs": {
+        "dataset_csv": "../../data/assembly/assembly.csv",
+        "bootstrap": 0,
+        "feature_list": ["A", "C", "G", "U", "RD", "ER", "MR"],
+        "val_size": 0.15,
+        "test_size": 0.15,
+        "seed": 42,
+        "batch_size": 16,
+        "noise_scale": 4
+    },
+    "ModelArgs": {
+        "d_model": 64,
+        "block_layers": 2,
+        "input_size": 7,
+        "max_len": 1024,
+        "activation": "GELU",
+        "kernel_sizes": [3, 3, 5, 5, 3, 3],
+        "dilations": [1, 2, 3, 3, 2, 1],
+        "num_heads": 8,
+        "dropout": 0.1
+    },
+    "OptimizerArgs": {
+        "lr": 1e-4,
+        "amsgrad": true
+    },
+    "AutopilotArgs": {
+        "loss_fn": "L1Loss",
+        "logits": false,
+        "max_epochs": 64,
+        "min_epochs": 8,
+        "tolerance": 0,
+        "output_dir": "H16/1"
+    }
+}

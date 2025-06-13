@@ -1,0 +1,8 @@
+{
+    "dataset_db": "../../data/assembly/assembly.db",
+    "table_name": "assembly",
+    "clause": "WHERE FullLength BETWEEN 64 AND 4096 AND StripLength <= 16 AND MeanDepth >= 16 AND MeanDensity >= 64 AND Gap = 0 ORDER BY FullLength ASC",
+    "config": "configs/pairwise.yaml",
+    "weights_pt": "weights/RibonanzaNet.pt",
+    "device": "cpu"
+}

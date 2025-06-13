@@ -1,0 +1,11 @@
+{
+    "DatasetCSV": "../../data/assembly/assembly.csv",
+    "FeatureList": ["A", "C", "G", "U", "RD", "ER", "MR"],
+    "OutputDir": "LR",
+    "TestSize": 0.15,
+    "Seed": 42,
+    "NumCores": 4,
+    "ParameterGrid": {
+        "poly__degree": [0, 1, 2, 3, 4]
+    }
+}
