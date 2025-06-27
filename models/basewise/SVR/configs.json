@@ -3,7 +3,9 @@
     "FeatureList": ["A", "C", "G", "U", "RD", "ER", "MR"],
     "OutputDir": "SVR",
     "TestSize": 0.15,
+    "Scorer": "mean_absolute_error",
     "Seed": 42,
+    "Bootstrap": 64,
     "NumCores": 4,
     "Kernel": "rbf",
     "ParameterGrid": {

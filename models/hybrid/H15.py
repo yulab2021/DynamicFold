@@ -6,7 +6,7 @@ import modules
 class H15(nn.Module):
     def __init__(self, d_model, num_layers, input_size, activation, channel_rate, pool_size, num_heads, dropout):
         super(H15, self).__init__()
-        self.embed = modules.Embedding1D(input_size, d_model, "conv", [4 * d_model], activation)
+        self.embed = modules.Embedding1D(input_size, d_model, "MLP", [4 * d_model], activation)
         self.gru = nn.GRU(d_model, d_model, batch_first=True, bidirectional=True)
         
         self.contractions = nn.ModuleList()
@@ -30,8 +30,9 @@ class H15(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x, logits=False):
+        x = x.permute(0, 2, 1)
         x = self.embed(x)
-        x, _ = self.gru(x.permute(0, 2, 1))
+        x, _ = self.gru(x)
         x = x.permute(0, 2, 1)
 
         encs = list()
@@ -56,23 +57,28 @@ class EncoderLayer(nn.Module):
         fn = getattr(nn, activation)
         self.skip = nn.Linear(input_channels, output_channels)
         self.conv = modules.MultiConv1D(input_channels, [4 * output_channels], output_channels, 3, 1, 1, 1, activation, dropout)
+        self.norm1 = nn.BatchNorm1d(output_channels)
         self.gru = nn.GRU(input_channels, output_channels, batch_first=True, bidirectional=True)
-        self.norm1 = nn.LayerNorm(4 * output_channels)
-        self.attn = nn.TransformerEncoderLayer(4 * output_channels, num_heads, 16 * output_channels, activation=fn(), batch_first=True, dropout=dropout)
+        self.norm2 = nn.LayerNorm(4 * output_channels)
+        self.attn = nn.MultiheadAttention(4 * output_channels, num_heads, batch_first=True, dropout=dropout)
+        self.norm3 = nn.LayerNorm(4 * output_channels)
         self.mlp = modules.MLP(4 * output_channels, [16 * output_channels], output_channels, activation)
-        self.norm2 = nn.LayerNorm(output_channels)
+        self.norm4 = nn.LayerNorm(output_channels)
+        self.activation = fn()
         self.dropout = nn.Dropout(p=dropout)
         
     def forward(self, x):
         x = x.permute(0, 2, 1)
         skip = self.skip(x)
-        conv = self.conv(x.permute(0, 2, 1))
+        conv = self.activation(self.norm1(self.conv(x.permute(0, 2, 1))))
         gru, _ = self.gru(x)
         x = torch.cat([conv.permute(0, 2, 1), gru, skip], dim=2)
-        x = self.dropout(self.norm1(x))
-        x = self.attn(x)
+        x = self.dropout(self.norm2(x))
+
+        res, _ = self.attn(x, x, x)
+        x = self.norm3(x + res)
         res = self.mlp(x)
-        x = self.norm2(res + skip).permute(0, 2, 1)
+        x = self.norm4(res + skip).permute(0, 2, 1)
         return x
 
 class ContractionLayer(nn.Module):
@@ -93,19 +99,20 @@ class ExpansionLayer(nn.Module):
         fn = getattr(nn, activation)
         kernel_transpose, padding_transpose = modules.compute_convt(pool_size)
         self.unpool = nn.ConvTranspose1d(input_channels, output_channels, kernel_size=kernel_transpose, stride=pool_size, padding=padding_transpose)
-        self.attn = nn.TransformerDecoderLayer(output_channels, num_heads, 4 * output_channels, activation=fn(), batch_first=True, dropout=dropout)
+        self.norm = nn.BatchNorm1d(output_channels)
         self.encoder = EncoderLayer(2 * output_channels, output_channels, activation, num_heads, dropout)
+        self.activation = fn()
 
     def forward(self, x, enc):
         x = self.unpool(x)
         x = F.interpolate(x, size=enc.size(2), mode="linear")
-        enc = self.attn(enc.permute(0, 2, 1), x.permute(0, 2, 1)).permute(0, 2, 1)
+        x = self.activation(self.norm(x))
         x = torch.cat([x, enc], dim=1)
         x = self.encoder(x)
         return x
     
 if __name__ == "__main__":
-    model = H15(16, 4, 8, "GELU", 2, 2, 8, 0.1).to(torch.device("cuda"))
-    x = torch.randn(16, 8, 1000).to(torch.device("cuda"))
+    model = H15(16, 3, 7, "GELU", 2, 4, 4, 0.1).to(torch.device("cuda"))
+    x = torch.randn(8, 7, 4000).to(torch.device("cuda"))
     y = model(x)
     print(y.shape)

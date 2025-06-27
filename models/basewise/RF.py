@@ -8,14 +8,14 @@ import sys
 args_json = sys.argv[1]
 args = orjson.loads(open(args_json, "r").read())
 
-dataset = utils.RNADataset(args["DatasetCSV"], args["FeatureList"], args["TestSize"], args["Seed"])
+dataset = utils.RNADataset(args["DatasetCSV"], args["FeatureList"], args["TestSize"], args["Scorer"], args["Seed"])
 pipeline = Pipeline([
     ('RF', RandomForestRegressor())
 ])
-grid_search = GridSearchCV(estimator=pipeline, param_grid=args["ParameterGrid"], scoring=utils.mae_scorer, verbose=3, n_jobs=args["NumCores"])
+grid_search = GridSearchCV(estimator=pipeline, param_grid=args["ParameterGrid"], scoring=dataset.scorer, verbose=3, n_jobs=args["NumCores"])
 
-grid_search.fit(*dataset.train_concat())
+grid_search.fit(*dataset.train_concat(args["Bootstrap"]))
 best_params = grid_search.best_params_
 best_pipeline = grid_search.best_estimator_
 
-dataset.test(best_pipeline, args["OutputDir"], best_params)
+dataset.test(best_pipeline, args["Scorer"], args["OutputDir"], best_params)

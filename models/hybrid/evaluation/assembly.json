@@ -1,11 +1,11 @@
 {
     "PerformanceArgs": {
         "dataset_csv": "../../../data/assembly/assembly.csv",
-        "evaluations_csvs": {
-            "H08": "H08/1/evaluations.csv",
-            "H15": "H15/1/evaluations.csv",
-            "H16": "H16/1/evaluations.csv",
-            "H17": "H17/1/evaluations.csv"
+        "outputs_csvs": {
+            "H08": "H08/1/outputs.csv",
+            "H15": "H15/1/outputs.csv",
+            "H16": "H16/1/outputs.csv",
+            "H17": "H17/1/outputs.csv"
         },
         "dataset_types": ["Train", "Val", "Test"],
         "title": "Assembly",

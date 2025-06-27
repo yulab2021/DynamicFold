@@ -1,0 +1,10 @@
+{
+    "device": "cuda:0",
+    "database_db": "../../data/assembly/assembly.db",
+    "table_name": "assembly",
+    "clause": "WHERE FullLength BETWEEN 64 AND 4096 AND StripLength <= 16 AND MeanDepth >= 16 AND MeanDensity >= 64 AND Gap = 0 ORDER BY FullLength ASC",
+    "model_args": {
+        "img_ch": 17,
+        "checkpoint": "weights/ufold_train_alldata.pt"
+    }
+}

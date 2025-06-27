@@ -3,7 +3,7 @@ import torch.nn as nn
 import modules
 
 class H16(nn.Module):
-    def __init__(self, d_model, block_layers, input_size, max_len, activation, kernel_sizes, dilations, num_heads, dropout):
+    def __init__(self, d_model, input_size, max_len, activation, kernel_sizes, num_heads, dropout):
         super(H16, self).__init__()
         self.embed = modules.Embedding1D(input_size, d_model, "conv", [4 * d_model], activation)
         self.pe = modules.PositionalEncoding1D(d_model, max_len, convolutional=True)
@@ -11,9 +11,9 @@ class H16(nn.Module):
         self.memory = Memory(d_model, activation, num_heads, dropout)
         self.blocks = nn.ModuleList()
         self.memories = nn.ModuleList()
-        for kernel_size, dilation in zip(kernel_sizes, dilations):
-            padding = modules.compute_padding(kernel_size, 1, dilation)
-            self.blocks.append(Block(d_model, block_layers, kernel_size, padding, 1, dilation, activation, dropout))
+        for kernel_size in kernel_sizes:
+            padding = modules.compute_padding(kernel_size)
+            self.blocks.append(Block(d_model, kernel_size, padding, 1, activation, dropout))
             self.memories.append(Memory(d_model, activation, num_heads, dropout))
         
         self.unembed = modules.MultiConv1D(d_model, [4 * d_model], 1, 1, 0, 1, 1, activation, dropout)
@@ -40,8 +40,8 @@ class Memory(nn.Module):
     def __init__(self, d_model, activation, num_heads, dropout):
         super(Memory, self).__init__()
         fn = getattr(nn, activation)
-        self.input = nn.Transformer(d_model, num_heads, 1, 1, 4 * d_model, dropout, fn(), batch_first=True)
-        self.output = nn.Transformer(d_model, num_heads, 1, 1, 4 * d_model, dropout, fn(), batch_first=True)
+        self.input = nn.TransformerDecoderLayer(d_model, num_heads, 4 * d_model, activation=fn(), batch_first=True, dropout=dropout)
+        self.output = nn.TransformerDecoderLayer(d_model, num_heads, 4 * d_model, activation=fn(), batch_first=True, dropout=dropout)
 
     def forward(self, x, mem):
         x = x.permute(0, 2, 1)
@@ -53,35 +53,27 @@ class Memory(nn.Module):
         return x, mem
 
 class Block(nn.Module):
-    def __init__(self, d_model, block_layers, kernel_size=3, padding=1, stride=1, dilation=1, activation="GELU", dropout=0.1):
+    def __init__(self, d_model, kernel_size=3, padding=1, stride=1, activation="GELU", dropout=0.1):
         super(Block, self).__init__()
-        layers = list()
-        for _ in range(block_layers):
-            layers.append(Layer(d_model, kernel_size, padding, stride, dilation, activation, dropout))
-        self.layers = nn.Sequential(*layers)
-
-    def forward(self, x):
-        x = self.layers(x)
-        return x
-
-class Layer(nn.Module):
-    def __init__(self, d_model, kernel_size=3, padding=1, stride=1, dilation=1, activation="GELU", dropout=0.1):
-        super(Layer, self).__init__()
         fn = getattr(nn, activation)
-        self.double_conv = modules.MultiConv1D(d_model, [4 * d_model], d_model, kernel_size, padding, stride, dilation, activation, dropout)
-        self.norm = nn.BatchNorm1d(d_model)
+        self.conv1 = modules.MultiConv1D(d_model, [4 * d_model], d_model, kernel_size, padding, stride, activation=activation, dropout=dropout)
+        self.norm1 = nn.BatchNorm1d(d_model)
+        self.conv2 = modules.MultiConv1D(d_model, [4 * d_model], d_model, kernel_size, padding, stride, activation=activation, dropout=dropout)
+        self.norm2 = nn.BatchNorm1d(d_model)
         self.activation = fn()
         self.dropout = nn.Dropout(p=dropout)
     
     def forward(self, x):
-        res = self.double_conv(x)
-        res = self.dropout(res)
-        x = self.norm(res + x)
+        res = self.conv1(x)
+        x = self.norm1(self.dropout(res) + x)
+        x = self.activation(x)
+        res = self.conv2(x)
+        x = self.norm2(self.dropout(res) + x)
         x = self.activation(x)
         return x
     
 if __name__ == "__main__":
-    model = H16(64, 2, 8, 1024, "GELU", [3, 3, 5, 5, 3, 3], [1, 2, 3, 3, 2, 1], 8, 0.1).to(torch.device("cuda"))
-    x = torch.randn(16, 8, 1000).to(torch.device("cuda"))
+    model = H16(256, 7, 4096, "GELU", [3, 5, 5, 3], 4, 0.1).to(torch.device("cuda"))
+    x = torch.randn(8, 7, 4000).to(torch.device("cuda"))
     y = model(x)
     print(y.shape)

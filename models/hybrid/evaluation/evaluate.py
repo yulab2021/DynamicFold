@@ -9,15 +9,15 @@ args = parser.parse_args()
 
 configs = orjson.loads(open(args.configs, "r").read())
 
-def plot_performances(dataset_csv, evaluations_csvs, dataset_types, title, output_dir):
+def plot_performances(dataset_csv, outputs_csvs, dataset_types, title, output_dir):
     MAEs = dict()
-    num_models = len(evaluations_csvs)
+    num_models = len(outputs_csvs)
     benchmark_data = pd.read_csv(dataset_csv)
     MAEs["RibonanzaNet"] = benchmark_data["RibonanzaNetMAE"].tolist()
 
     for dataset_type in dataset_types:
-        for model_name, evaluations_csv in evaluations_csvs.items():
-            predictions_data = pd.read_csv(evaluations_csv)
+        for model_name, outputs_csv in outputs_csvs.items():
+            predictions_data = pd.read_csv(outputs_csv)
             MAE = predictions_data.loc[predictions_data["Dataset"] == dataset_type, "MAE"].tolist()
             MAEs[model_name] = MAE
 

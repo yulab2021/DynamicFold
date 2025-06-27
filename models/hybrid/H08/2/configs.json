@@ -1,0 +1,27 @@
+{
+    "Mode": "Evaluate",
+    "Module": "H08",
+    "CheckpointPT": "H08/1/checkpoint.pt",
+    "DatasetArgs": {
+        "dataset_csv": "../../data/assembly/assembly.csv",
+        "bootstrap": 0,
+        "feature_list": ["A", "C", "G", "U", "RD", "ER", "MR"],
+        "val_size": 0.15,
+        "test_size": 0.15,
+        "seed": 42,
+        "batch_size": 16,
+        "noise_scale": 4
+    },
+    "ModelArgs": {
+        "d_model": 256,
+        "num_layers": 3,
+        "input_size": 7,
+        "activation": "GELU",
+        "dropout": 0.1
+    },
+    "EvaluateArgs": {
+        "evaluation_fn": "mean_absolute_error",
+        "dataset_types": ["Val", "Test"],
+        "output_dir": "H08/2"
+    }
+}

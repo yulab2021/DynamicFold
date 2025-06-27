@@ -1,0 +1,27 @@
+{
+    "Mode": "Resume",
+    "Module": "H19",
+    "CheckpointPT": "H19/1/checkpoint.pt",
+    "DatasetArgs": {
+        "dataset_csv": "../../data/assembly/assembly.csv",
+        "bootstrap": 0,
+        "feature_list": ["A", "C", "G", "U", "RD", "ER", "MR"],
+        "val_size": 0.15,
+        "test_size": 0.15,
+        "seed": 42,
+        "batch_size": 16,
+        "noise_scale": 4
+    },
+   "OptimizerArgs": {
+        "lr": 1e-6,
+        "amsgrad": false
+    },
+    "AutopilotArgs": {
+        "loss_fn": "L1Loss",
+        "logits": false,
+        "max_epochs": 64,
+        "min_epochs": 8,
+        "tolerance": 0,
+        "output_dir": "H19/2"
+    }
+}

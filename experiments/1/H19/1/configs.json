@@ -1,0 +1,42 @@
+{
+    "Mode": "New",
+    "Module": "H19",
+    "Model": "H19",
+    "Optimizer": "Adam",
+    "DatasetArgs": {
+        "dataset_csv": "assembly.csv",
+        "bootstrap": 0,
+        "feature_list": ["A", "C", "G", "U", "RD", "ER", "MR"],
+        "val_size": 0.15,
+        "test_size": 0.15,
+        "seed": 42,
+        "batch_size": 16,
+        "noise_scale": 4
+    },
+    "ModelArgs": {
+        "network_depth": 3,
+        "bottleneck_layers": 3,
+        "input_size": 7,
+        "max_len": 4096,
+        "d_model": 96,
+        "patch_size": 16,
+        "pool_size": 4,
+        "channel_rate": 2,
+        "num_heads": 16,
+        "batch_size": 65536,
+        "activation": "GELU",
+        "dropout": 0.1
+    },
+    "OptimizerArgs": {
+        "lr": 1e-4,
+        "amsgrad": true
+    },
+    "AutopilotArgs": {
+        "loss_fn": "L1Loss",
+        "logits": false,
+        "max_epochs": 1024,
+        "min_epochs": 8,
+        "tolerance": 0,
+        "output_dir": "H19/1"
+    }
+}

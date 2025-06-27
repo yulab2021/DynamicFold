@@ -14,14 +14,12 @@
         "noise_scale": 4
     },
     "ModelArgs": {
-        "d_model": 64,
-        "block_layers": 2,
+        "d_model": 256,
         "input_size": 7,
-        "max_len": 1024,
+        "max_len": 4096,
         "activation": "GELU",
-        "kernel_sizes": [3, 3, 5, 5, 3, 3],
-        "dilations": [1, 2, 3, 3, 2, 1],
-        "num_heads": 8,
+        "kernel_sizes": [3, 5, 5, 3],
+        "num_heads": 4,
         "dropout": 0.1
     },
     "OptimizerArgs": {
@@ -34,6 +32,6 @@
         "max_epochs": 64,
         "min_epochs": 8,
         "tolerance": 0,
-        "output_dir": "H16/1"
+        "output_dir": "H16/2"
     }
 }

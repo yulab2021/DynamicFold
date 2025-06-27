@@ -3,7 +3,9 @@
     "FeatureList": ["A", "C", "G", "U", "RD", "ER", "MR"],
     "OutputDir": "LR",
     "TestSize": 0.15,
+    "Scorer": "mean_absolute_error",
     "Seed": 42,
+    "Bootstrap": 1024,
     "NumCores": 4,
     "ParameterGrid": {
         "poly__degree": [0, 1, 2, 3, 4]

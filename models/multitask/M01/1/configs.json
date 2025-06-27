@@ -1,0 +1,52 @@
+{
+    "Mode": "New",
+    "Module": "M01",
+    "Model": "M01",
+    "Optimizer": "Adam",
+    "DatasetArgs": {
+        "dataset_csv": "../../data/assembly/assembly.csv",
+        "database_db": "../../data/assembly/assembly.db",
+        "table_name": "assembly",
+        "bootstrap": 0,
+        "feature_list": ["A", "C", "G", "U", "RD", "ER", "MR"],
+        "bpp_column": "UFoldBPP",
+        "val_size": 0.15,
+        "test_size": 0.15,
+        "seed": 42,
+        "batch_size": 4,
+        "noise_scale": 4
+    },
+    "ModelArgs": {
+        "main_args": {
+            "network_depth": 4,
+            "bottleneck_layers": 4,
+            "input_size": 7,
+            "max_len": 4096,
+            "d_model": 64,
+            "kernel_size": 3,
+            "pool_size": 2,
+            "channel_rate": 2,
+            "num_heads": 16,
+            "activation": "GELU",
+            "dropout": 0.1
+        },
+        "auxiliary_args": {
+            "hidden_size": 16,
+            "activation": "GELU"
+        }
+    },
+    "OptimizerArgs": {
+        "lr": 1e-4,
+        "amsgrad": true
+    },
+    "AutopilotArgs": {
+        "loss_fn": "L1Loss",
+        "programs": {
+            "auxiliary": 4,
+            "main": 4,
+            "full": 4
+        },
+        "tolerance": 0,
+        "output_dir": "M01/1"
+    }
+}

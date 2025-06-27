@@ -24,7 +24,7 @@ class H08(nn.Module):
             return x
     
 if __name__ == "__main__":
-    model = H08(256, 3, 8, "GELU", 0.1).to(torch.device("cuda"))
-    x = torch.randn(16, 8, 1000).to(torch.device("cuda"))
+    model = H08(256, 3, 7, "GELU", 0.1).to(torch.device("cuda"))
+    x = torch.randn(16, 7, 1000).to(torch.device("cuda"))
     y = model(x)
     print(y.shape)

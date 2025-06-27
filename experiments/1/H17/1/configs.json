@@ -1,0 +1,46 @@
+{
+    "Mode": "New",
+    "Module": "H17",
+    "Model": "H17",
+    "Optimizer": "Adam",
+    "DatasetArgs": {
+        "dataset_csv": "../../data/assembly/assembly.csv",
+        "bootstrap": 0,
+        "feature_list": ["A", "C", "G", "U", "RD", "ER", "MR"],
+        "val_size": 0.15,
+        "test_size": 0.15,
+        "seed": 42,
+        "batch_size": 8,
+        "noise_scale": 4
+    },
+    "ModelArgs": {
+        "network_depth": 4,
+        "bottleneck_layers": 4,
+        "input_size": 7,
+        "max_len": 4096,
+        "seq_channels": 256,
+        "map_channels": 16,
+        "map_rank": 64,
+        "patch_size": 16,
+        "pool_size": 2,
+        "channel_rate": 2,
+        "compression_rate": 4,
+        "num_heads": 4,
+        "batch_size": 65536,
+        "temperature": 1,
+        "activation": "GELU",
+        "dropout": 0.1
+    },
+    "OptimizerArgs": {
+        "lr": 1e-4,
+        "amsgrad": true
+    },
+    "AutopilotArgs": {
+        "loss_fn": "L1Loss",
+        "logits": false,
+        "max_epochs": 64,
+        "min_epochs": 8,
+        "tolerance": 0,
+        "output_dir": "H17/1"
+    }
+}

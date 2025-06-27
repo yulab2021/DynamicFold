@@ -15,12 +15,12 @@
     },
     "ModelArgs": {
         "d_model": 16,
-        "num_layers": 4,
+        "num_layers": 3,
         "input_size": 7,
         "activation": "GELU",
         "channel_rate": 2,
-        "pool_size": 2,
-        "num_heads": 8,
+        "pool_size": 4,
+        "num_heads": 4,
         "dropout": 0.1
     },
     "OptimizerArgs": {

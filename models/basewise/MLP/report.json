@@ -1,0 +1,14 @@
+{
+    "Time": "2025-06-16 06:54:36",
+    "Evaluations": {
+        "Train": 0.20882996730788805,
+        "Test": 0.20913261427031116
+    },
+    "Parameters": {
+        "MLP__activation": "logistic",
+        "MLP__hidden_layer_sizes": [
+            256,
+            256
+        ]
+    }
+}

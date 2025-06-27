@@ -1,5 +1,5 @@
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_absolute_error
+import sklearn.metrics as metrics
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
@@ -26,29 +26,27 @@ class DeviceManager:
         else:
             self.device = torch.device("cpu")
     
-    def get_device(self):
+    def get(self):
         return self.device
     
-    def set_device(self, device:str):
+    def set(self, device:str):
         self.device = torch.device(device)
 
 dm = DeviceManager()
 
-def onehot_encode(sequence:str):
-    tokens = {'A': [1, 0, 0, 0], 'C': [0, 1, 0, 0], 'G': [0, 0, 1, 0], 'U': [0, 0, 0, 1], 'N': [0.25, 0.25, 0.25, 0.25]}
-    encoded = [tokens[nt] for nt in sequence]
-    encoded = np.transpose(encoded).tolist()
-    return encoded
+def extend_dict(this:dict[str,list], other:dict[str,list]):
+    if set(this.keys()) != set(other.keys()):
+        raise ValueError("non-conformable dict")
+    if not (all(isinstance(value, list) for value in this.values()) and all(isinstance(value, list) for value in other.values())):
+        raise ValueError("invalid dict format")
 
-def extend_dict(x:dict[str,list], y:dict[str,list]):
-    for key, value in y.items():
-        if (not isinstance(key, str)) or (not isinstance(value, list)):
-            raise ValueError("invalid dict format")
-        if key in x:
-            x[key].extend(value)
-        else:
-            x[key] = value
-    return x
+    results = dict()
+    for key in this.keys():
+        results[key] = list()
+        results[key].extend(this[key])
+        results[key].extend(other[key])
+    
+    return results
 
 def permute_dict(original:dict):
     keys = original.keys()
@@ -62,7 +60,7 @@ def noisy_argsort(sequence:list[int], noise_scale:float):
 
 def collate_batch(batch:list[tuple[torch.Tensor|str]]):
     keys, Xs, ys = zip(*batch)
-    max_len = max([X.shape[1] for X in Xs])
+    max_len = max([y.shape[0] for y in ys])
     Xs = [F.pad(X, (0, max_len - X.shape[1]), "constant", 0) for X in Xs]
     ys = [F.pad(y, (0, max_len - y.shape[0]), "constant", 0) for y in ys]
     Xs = torch.stack(Xs)
@@ -70,23 +68,23 @@ def collate_batch(batch:list[tuple[torch.Tensor|str]]):
     return keys, Xs, ys
 
 class RNADataset(utils.Dataset):
-    def __init__(self, keys, X:list[np.ndarray], y:list[np.ndarray]):
-        assert len(keys) == len(X) == len(y)
+    def __init__(self, keys:list[str], Xs:list[np.ndarray], ys:list[np.ndarray]):
+        assert len(keys) == len(Xs) == len(ys)
         self.keys = keys
-        self.X = X
-        self.y = y
+        self.Xs = Xs
+        self.ys = ys
 
     def __len__(self):
         return len(self.keys)
     
     def entry_lengths(self):
-        return [y.shape[0] for y in self.y]
+        return [y.shape[0] for y in self.ys]
 
     def __getitem__(self, index:int):
         key = self.keys[index]
-        X_entry = torch.tensor(self.X[index], dtype=torch.float32).to(dm.device)
-        y_entry = torch.tensor(self.y[index], dtype=torch.float32).to(dm.device)
-        return key, X_entry, y_entry
+        X = torch.tensor(self.Xs[index], dtype=torch.float32, device=dm.device)
+        y = torch.tensor(self.ys[index], dtype=torch.float32, device=dm.device)
+        return key, X, y
 
 class LengthAwareSampler(utils.Sampler):
     def __init__(self, dataset:RNADataset, batch_size:int, noise_scale:float):
@@ -119,66 +117,57 @@ class Dataset:
         self.ys = list()
 
         for _, row in self.dataset.iterrows():
-            X_entry = list()
+            X = list()
             for feature in feature_list:
-                if feature == "SQ":
-                    X_entry.extend(onehot_encode(row["SQ"]))
-                else:
-                    X_entry.append(orjson.loads(row[feature]))
-            y_entry = orjson.loads(row["RT"])
+                X.append(orjson.loads(row[feature]))
+            y = orjson.loads(row["RT"])
 
-            X_entry = np.array(X_entry)
-            y_entry = np.array(y_entry)
+            X = np.array(X)
+            y = np.array(y)
 
             self.keys.append(row["SeqID"])
             self.ref_names.append(row["RefName"])
-            self.Xs.append(X_entry)
-            self.ys.append(y_entry)
+            self.Xs.append(X)
+            self.ys.append(y)
 
         return self.keys, self.ref_names, self.Xs, self.ys
 
     def split(self, val_size:float, test_size:float, seed:int, batch_size:int, noise_scale:float):
-        train_ref_names, test_ref_names = train_test_split(self.dataset["RefName"].unique().tolist(), test_size=test_size, random_state=seed)
-        train_ref_names, val_ref_names = train_test_split(train_ref_names, test_size=val_size, random_state=seed)
+        ref_names = dict()
+        ref_names["Train"], ref_names["Test"] = train_test_split(self.dataset["RefName"].unique().tolist(), test_size=test_size, random_state=seed)
+        ref_names["Train"], ref_names["Val"] = train_test_split(ref_names["Train"], test_size=val_size, random_state=seed)
 
-        self.train_indices = np.isin(self.ref_names, train_ref_names)
-        self.val_indices = np.isin(self.ref_names, val_ref_names)
-        self.test_indices = np.isin(self.ref_names, test_ref_names)
+        self.indices = dict()
+        self.dataloaders = dict()
 
-        train_data = RNADataset(
-            [value for value, index in zip(self.keys, self.train_indices) if index],
-            [value for value, index in zip(self.Xs, self.train_indices) if index],
-            [value for value, index in zip(self.ys, self.train_indices) if index]
-        )
-        val_data = RNADataset(
-            [value for value, index in zip(self.keys, self.val_indices) if index],
-            [value for value, index in zip(self.Xs, self.val_indices) if index],
-            [value for value, index in zip(self.ys, self.val_indices) if index]
-        )
-        test_data = RNADataset(
-            [value for value, index in zip(self.keys, self.test_indices) if index],
-            [value for value, index in zip(self.Xs, self.test_indices) if index],
-            [value for value, index in zip(self.ys, self.test_indices) if index]
-        )
+        for dataset_type in ["Train", "Val", "Test"]:
+            self.indices[dataset_type] = np.isin(self.ref_names, ref_names[dataset_type])
+            data = RNADataset(
+                [value for value, index in zip(self.keys, self.indices[dataset_type]) if index],
+                [value for value, index in zip(self.Xs, self.indices[dataset_type]) if index],
+                [value for value, index in zip(self.ys, self.indices[dataset_type]) if index]
+            )
+            self.dataloaders[dataset_type] = utils.DataLoader(data, batch_size=1, shuffle=True)
 
+        batch_data = RNADataset(
+            [value for value, index in zip(self.keys, self.indices["Train"]) if index],
+            [value for value, index in zip(self.Xs, self.indices["Train"]) if index],
+            [value for value, index in zip(self.ys, self.indices["Train"]) if index]
+        )
         if batch_size > 1:
-            train_sampler = LengthAwareSampler(train_data, batch_size, noise_scale)
-            self.batch_dataloader = utils.DataLoader(train_data, batch_sampler=train_sampler, collate_fn=collate_batch)
+            batch_sampler = LengthAwareSampler(batch_data, batch_size, noise_scale)
+            self.dataloaders["Batch"] = utils.DataLoader(batch_data, batch_sampler=batch_sampler, collate_fn=collate_batch)
         else:
-            self.batch_dataloader = utils.DataLoader(train_data, batch_size=1, shuffle=True)
-            
-        self.train_dataloader = utils.DataLoader(train_data, batch_size=1, shuffle=True)
-        self.val_dataloader = utils.DataLoader(val_data, batch_size=1, shuffle=True)
-        self.test_dataloader = utils.DataLoader(test_data, batch_size=1, shuffle=True)
+            self.dataloaders["Batch"] = self.dataloaders["Train"]
 
-        return self.train_dataloader, self.val_dataloader, self.test_dataloader
+        return self.dataloaders
     
     def dump(self, data:dict[str,list], output_dir:str, with_original:bool=False):
         data = pd.DataFrame(data)
         if with_original:
             data = pd.merge(left=data, right=self.dataset, left_on="SeqID", right_on="SeqID", how="left")
-        data.to_csv(f"{output_dir}/evaluations.csv", index=False)
-        print("evaluations saved")
+        data.to_csv(f"{output_dir}/outputs.csv", index=False)
+        print("outputs saved")
 
 class Checkpoint:
     def __init__(self, checkpoint_pt:str=None, model_args:dict[str,]=None, optimizer_args:dict[str,]=None):
@@ -203,14 +192,10 @@ class Checkpoint:
                     "Serial": None,
                     "Time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "Epoch": 0, # 1-based
-                    "Evaluations": {
-                        "TrainMMAE": None,
-                        "ValMMAE": None,
-                        "TestMMAE": None
-                    },
+                    "Evaluations": None,
                     "Losses": {
-                        "TrainLoss": list(),
-                        "ValLoss": list()
+                        "Train": list(),
+                        "Val": list()
                     }
                 }
             }
@@ -233,19 +218,17 @@ class Checkpoint:
         
         return model, optimizer
     
-    def update(self, losses:dict[str,float]):
+    def update(self, losses:dict[str,float], delta_epochs:int):
         self.checkpoint["Metadata"]["Time"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.checkpoint["Metadata"]["Epoch"] += 1
-        self.checkpoint["Metadata"]["Losses"]["TrainLoss"].append(losses["TrainLoss"])
-        self.checkpoint["Metadata"]["Losses"]["ValLoss"].append(losses["ValLoss"])
+        self.checkpoint["Metadata"]["Losses"] = extend_dict(self.checkpoint["Metadata"]["Losses"], losses)
+        self.checkpoint["Metadata"]["Epoch"] += delta_epochs
 
     def evaluate(self, evaluations:dict[str,float]):
         self.checkpoint["Metadata"]["Time"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.checkpoint["Metadata"]["Evaluations"]["TrainMMAE"] = evaluations["TrainMMAE"]
-        self.checkpoint["Metadata"]["Evaluations"]["ValMMAE"] = evaluations["ValMMAE"]
-        self.checkpoint["Metadata"]["Evaluations"]["TestMMAE"] = evaluations["TestMMAE"]
+        self.checkpoint["Metadata"]["Evaluations"] = evaluations
 
     def checksum(self):
+        serial = self.checkpoint["Metadata"]["Serial"]
         self.checkpoint["Metadata"]["Serial"] = None
         self.buffer.seek(0)
         self.buffer.truncate(0)
@@ -254,6 +237,7 @@ class Checkpoint:
         md5sum = hashlib.md5(serialized).hexdigest()
         self.buffer.seek(0)
         self.buffer.truncate(0)
+        self.checkpoint["Metadata"]["Serial"] = serial
         return md5sum
 
     def dump(self, model:nn.Module, optimizer:optim.Optimizer, output_dir:str):
@@ -279,7 +263,7 @@ class Trainer:
     def train(self, model:nn.Module, optimizer:optim.Optimizer, criterion:nn.Module, logits:bool):
         model.train()
         train_loss = 0.0
-        for _, inputs, labels in tqdm(self.dataset.batch_dataloader, desc=f"Training"):
+        for _, inputs, labels in tqdm(self.dataset.dataloaders["Batch"], desc=f"Training"):
             optimizer.zero_grad()
             outputs = model(inputs, logits)
             loss = criterion(outputs, labels)
@@ -290,68 +274,68 @@ class Trainer:
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
-            for _, inputs, labels in tqdm(self.dataset.val_dataloader, desc=f"Validating"):
+            for _, inputs, labels in tqdm(self.dataset.dataloaders["Val"], desc=f"Validating"):
                 outputs = model(inputs, logits)
                 loss = criterion(outputs, labels)
                 val_loss += loss.item()
 
-        train_loss = train_loss / len(self.dataset.batch_dataloader)
-        val_loss = val_loss / len(self.dataset.val_dataloader)
+        train_loss = train_loss / len(self.dataset.dataloaders["Batch"])
+        val_loss = val_loss / len(self.dataset.dataloaders["Val"])
 
         return model, train_loss, val_loss
     
-    def test(self, model:nn.Module, dataloader:utils.DataLoader, dataset_type:str):
-        results = {"SeqID": list(), "Predictions": list(), "MAE": list(), "Dataset": list()}
+    def test(self, model:nn.Module, criterion:nn.Module, dataset_type:str):
+        results = {"SeqID": list(), "Predictions": list(), "Score": list(), "Dataset": list()}
         model.eval()
         
-        MAEs = list()
+        scores = list()
         with torch.no_grad():
-            for seq_ids, X_entries, y_entries in tqdm(dataloader, desc=f"Testing [{dataset_type} Set]"):
-                predictions = model(X_entries).cpu().numpy()
-                for seq_id, y_entry, prediction in zip(seq_ids, y_entries, predictions):
-                    MAE = mean_absolute_error(prediction, y_entry.cpu().numpy())
-                    MAEs.append(MAE)
-                    results["SeqID"].append(seq_id)
-                    results["Predictions"].append(orjson.dumps(prediction.tolist()).decode())
-                    results["MAE"].append(MAE)
+            for keys, inputs, labels in tqdm(self.dataset.dataloaders[dataset_type], desc=f"Testing [{dataset_type} Set]"):
+                outputs = model(inputs).cpu().numpy()
+                labels = labels.cpu().numpy()
+                for key, label, output in zip(keys, labels, outputs):
+                    score = criterion(output, label)
+                    scores.append(score)
+                    results["SeqID"].append(key)
+                    results["Predictions"].append(orjson.dumps(output.tolist()).decode())
+                    results["Score"].append(score)
                     results["Dataset"].append(dataset_type)
-        MMAE = np.mean(MAEs)
-        return results, MMAE
+        evaluation = np.mean(scores)
+        return results, evaluation
 
     def autopilot(self, model:nn.Module, optimizer:optim.Optimizer, loss_fn:str, logits:bool, max_epochs:int, min_epochs:int, tolerance:float, output_dir:str):
         model = model.to(dm.device)
         criterion = getattr(nn, loss_fn)()
 
-        for epoch in range(max_epochs):
-            print(f"== Epoch {epoch+1}/{max_epochs} ==")
+        total_epochs = self.checkpoint.checkpoint["Metadata"]["Epoch"] + max_epochs
+        for _ in range(max_epochs):
+            epoch = self.checkpoint.checkpoint["Metadata"]["Epoch"] + 1
+            print(f"== Epoch {epoch}/{total_epochs} ==")
             model, train_loss, val_loss = self.train(model, optimizer, criterion, logits)
             print(f"training loss: {train_loss:.4f},", f"validation loss: {val_loss:.4f}")
 
-            best_val_loss = min(self.checkpoint.checkpoint["Metadata"]["Losses"]["ValLoss"], default=1.0)
-            self.checkpoint.update({"TrainLoss": train_loss, "ValLoss": val_loss})
+            best_val_loss = min(self.checkpoint.checkpoint["Metadata"]["Losses"]["Val"], default=1.0)
+            self.checkpoint.update({"Train": [train_loss], "Val": [val_loss]}, 1)
+
             if epoch >= min_epochs and val_loss < best_val_loss + tolerance:
-                self.evaluate(model, output_dir, report=False)
                 self.checkpoint.dump(model, optimizer, output_dir)
-            
             self.checkpoint.report(output_dir)
 
         return model
         
-    def evaluate(self, model:nn.Module, output_dir:str, report:bool=True):
+    def evaluate(self, model:nn.Module, evaluation_fn:str, dataset_types:list[str], output_dir:str, report:bool=True):
         model = model.to(dm.device)
+        criterion = getattr(metrics, evaluation_fn)
+
+        outputs = {"SeqID": list(), "Predictions": list(), "Score": list(), "Dataset": list()}
+        evaluations = dict()
     
-        train_evaluations, train_MMAE = self.test(model, self.dataset.train_dataloader, "Train")
-        val_evaluations, val_MMAE = self.test(model, self.dataset.val_dataloader, "Val")
-        test_evaluations, test_MMAE = self.test(model, self.dataset.test_dataloader, "Test")
-        print(f"training MMAE: {train_MMAE:.4f},", f"validation MMAE: {val_MMAE:.4f},", f"testing MMAE: {test_MMAE:.4f}")
+        for dataset_type in dataset_types:
+            output, evaluations[dataset_type] = self.test(model, criterion, dataset_type)
+            outputs = extend_dict(outputs, output)
 
-        evaluations = {"SeqID": list(), "Predictions": list(), "MAE": list(), "Dataset": list()}
-        evaluations = extend_dict(evaluations, train_evaluations)
-        evaluations = extend_dict(evaluations, val_evaluations)
-        evaluations = extend_dict(evaluations, test_evaluations)
-
-        self.dataset.dump(evaluations, output_dir, with_original=False)
-        self.checkpoint.evaluate({"TrainMMAE": train_MMAE, "ValMMAE": val_MMAE, "TestMMAE": test_MMAE})
+        self.dataset.dump(outputs, output_dir, with_original=False)
+        self.checkpoint.evaluate(evaluations)
         
         if report:
             self.checkpoint.report(output_dir)

@@ -1,0 +1,11 @@
+{
+    "Time": "2025-06-16 03:17:06",
+    "Evaluations": {
+        "Train": 0.1969475134706582,
+        "Test": 0.19691246575983792
+    },
+    "Parameters": {
+        "XGB__max_depth": 4,
+        "XGB__n_estimators": 64
+    }
+}

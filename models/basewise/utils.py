@@ -1,14 +1,12 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import make_scorer, mean_absolute_error
+import sklearn.metrics as metrics
 from tqdm import tqdm
 import numpy as np
 import datetime
 import orjson
 import json
 import joblib
-
-mae_scorer = make_scorer(mean_absolute_error, greater_is_better=False)
 
 def onehot_encode(sequence):
     tokens = {'A': [1, 0, 0, 0], 'C': [0, 1, 0, 0], 'G': [0, 0, 1, 0], 'U': [0, 0, 0, 1], 'N': [0.25, 0.25, 0.25, 0.25]}
@@ -20,8 +18,9 @@ def load_pipeline(pipeline_pkl):
     return joblib.load(pipeline_pkl)
 
 class RNADataset:
-    def __init__(self, dataset_csv:str, feature_list:list[str], test_size:float, seed:int):
+    def __init__(self, dataset_csv:str, feature_list:list[str], test_size:float, scorer:str, seed:int):
         self.dataset = pd.read_csv(dataset_csv)
+        self.scorer = metrics.make_scorer(getattr(metrics, scorer), greater_is_better=False)
         self.load(feature_list)
         self.split(test_size, seed)
 
@@ -76,35 +75,38 @@ class RNADataset:
         y_data = np.array(y_data)
         return X_data, y_data
     
-    def test(self, pipeline, output_dir, params=dict()):
-        evaluations = {"SeqID": list(), "Predictions": list(), "MAE": list(), "Dataset": list()}
+    def test(self, pipeline, evaluation_fn, output_dir, params=dict()):
+        outputs = {"SeqID": list(), "Predictions": list(), "Score": list(), "Dataset": list()}
+        criterion = getattr(metrics, evaluation_fn)
 
         for seq_id, X_entry, y_entry in tqdm(zip(self.train_keys, self.X_train, self.y_train), desc="Testing [Train Set]", total=len(self.train_keys)):
             predictions = pipeline.predict(X_entry.transpose())
-            MAE = mean_absolute_error(predictions, y_entry)
-            evaluations["SeqID"].append(seq_id)
-            evaluations["Predictions"].append(orjson.dumps(predictions.tolist()).decode())
-            evaluations["MAE"].append(float(MAE))
-            evaluations["Dataset"].append("Train")
+            score = criterion(predictions, y_entry)
+            outputs["SeqID"].append(seq_id)
+            outputs["Predictions"].append(orjson.dumps(predictions.tolist()).decode())
+            outputs["Score"].append(float(score))
+            outputs["Dataset"].append("Train")
 
         for seq_id, X_entry, y_entry in tqdm(zip(self.test_keys, self.X_test, self.y_test), desc="Testing [Test Set]", total=len(self.test_keys)):
             predictions = pipeline.predict(X_entry.transpose())
-            MAE = mean_absolute_error(predictions, y_entry)
-            evaluations["SeqID"].append(seq_id)
-            evaluations["Predictions"].append(orjson.dumps(predictions.tolist()).decode())
-            evaluations["MAE"].append(float(MAE))
-            evaluations["Dataset"].append("Test")
+            score = criterion(predictions, y_entry)
+            outputs["SeqID"].append(seq_id)
+            outputs["Predictions"].append(orjson.dumps(predictions.tolist()).decode())
+            outputs["Score"].append(float(score))
+            outputs["Dataset"].append("Test")
 
-        train_MMAE = np.mean([MAE for MAE, flag in zip(evaluations["MAE"], evaluations["Dataset"]) if flag == "Train"])
-        test_MMAE = np.mean([MAE for MAE, flag in zip(evaluations["MAE"], evaluations["Dataset"]) if flag == "Test"])
+        train_evaluation = np.mean([score for score, flag in zip(outputs["Score"], outputs["Dataset"]) if flag == "Train"])
+        test_evaluation = np.mean([score for score, flag in zip(outputs["Score"], outputs["Dataset"]) if flag == "Test"])
 
-        evaluations = pd.DataFrame(evaluations)
-        evaluations.to_csv(f"{output_dir}/evaluations.csv", index=False)
+        outputs = pd.DataFrame(outputs)
+        outputs.to_csv(f"{output_dir}/outputs.csv", index=False)
 
         report = {
             "Time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "TrainMMAE": float(train_MMAE),
-            "TestMMAE": float(test_MMAE)
+            "Evaluations": {
+                "Train": float(train_evaluation),
+                "Test": float(test_evaluation)
+            }
         }
         report["Parameters"] = params
         with open(f"{output_dir}/report.json", "w") as report_file:
