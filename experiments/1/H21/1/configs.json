@@ -1,10 +1,10 @@
 {
     "Mode": "New",
-    "Module": "H16",
-    "Model": "H16",
+    "Module": "H21",
+    "Model": "H21",
     "Optimizer": "Adam",
     "DatasetArgs": {
-        "dataset_csv": "../../data/assembly/assembly.csv",
+        "dataset_csv": "assembly.csv",
         "bootstrap": 0,
         "feature_list": ["A", "C", "G", "U", "RD", "ER", "MR"],
         "val_size": 0.15,
@@ -14,12 +14,19 @@
         "noise_scale": 4
     },
     "ModelArgs": {
-        "d_model": 96,
+        "network_depth": 3,
+        "bottleneck_layers": 3,
         "input_size": 7,
         "max_len": 4096,
+        "seq_channels": 64,
+        "map_channels": 64,
+        "map_rank": 64,
+        "kernel_size": 3,
+        "pool_size": 4,
+        "channel_rate": 2,
+        "num_heads": 16,
+        "temperature": 1,
         "activation": "GELU",
-        "kernel_sizes": [3, 5, 5, 3],
-        "num_heads": 4,
         "dropout": 0.1
     },
     "OptimizerArgs": {
@@ -32,6 +39,6 @@
         "max_epochs": 64,
         "min_epochs": 8,
         "tolerance": 0,
-        "output_dir": "H16/2"
+        "output_dir": "H21/1"
     }
 }

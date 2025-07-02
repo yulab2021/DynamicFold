@@ -113,6 +113,6 @@ class ExpansionLayer(nn.Module):
     
 if __name__ == "__main__":
     model = H15(16, 3, 7, "GELU", 2, 4, 4, 0.1).to(torch.device("cuda"))
-    x = torch.randn(8, 7, 4000).to(torch.device("cuda"))
+    x = torch.randn(16, 7, 4000).to(torch.device("cuda"))
     y = model(x)
     print(y.shape)

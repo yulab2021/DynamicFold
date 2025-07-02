@@ -24,9 +24,6 @@ class Main(nn.Module):
             self.expansions.append(ExpansionLayer(in_channels, out_channels, activation, kernel_size, pool_size, dropout))
             in_channels = out_channels
 
-        self.unembed = modules.MLP(2 * d_model, [4 * d_model], d_model, activation)
-        self.sigmoid = nn.Sigmoid()
-
     def forward(self, x):
         x = x.permute(0, 2, 1)
         x = self.embed(x)
@@ -39,10 +36,6 @@ class Main(nn.Module):
         x = self.bottleneck(x)
         for expansion, enc in zip(self.expansions, reversed(encs)):
             x = expansion(x, enc)
-
-        x = self.unembed(x)
-        x = torch.matmul(x, x.permute(0, 2, 1))
-        x = self.sigmoid(x)
         return x
 
 class ContractionLayer(nn.Module):
@@ -99,61 +92,76 @@ class ExpansionLayer(nn.Module):
         x = x.permute(0, 2, 1)
         return x
     
-class Auxiliary(nn.Module):
-    def __init__(self, hidden_size, activation):
-        super(Auxiliary, self).__init__()
-        fn = getattr(nn, activation)
-        self.linear1 = nn.Linear(1, hidden_size)
-        self.linear2 = nn.Linear(hidden_size, 1)
-        self.activation = fn()
+class MapUnembed(nn.Module):
+    def __init__(self, d_model, activation):
+        super(MapUnembed, self).__init__()
+        self.unembed = modules.MLP(2 * d_model, [4 * d_model], d_model, activation)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        x = x.squeeze(1).unsqueeze(3)
-        x = self.activation(self.linear1(x))
-        x = torch.mean(x, dim=2)
-        x = self.linear2(x)
+        x = self.unembed(x)
+        x = torch.matmul(x, x.permute(0, 2, 1))
+        x = self.sigmoid(x)
+        return x
+    
+class SeqUnembed(nn.Module):
+    def __init__(self, d_model, activation):
+        super(SeqUnembed, self).__init__()
+        self.unembed = modules.MLP(2 * d_model, [4 * d_model], 1, activation)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.unembed(x)
         x = x.squeeze(2)
         x = self.sigmoid(x)
         return x
     
-class A01(nn.Module):
-    def __init__(self, main_args, auxiliary_args):
-        super(A01, self).__init__()
-        self.main = Main(**main_args)
-        self.auxiliary = Auxiliary(**auxiliary_args)
-        self.set("full")
+class M01(nn.Module):
+    def __init__(self, network_depth, bottleneck_layers, input_size, max_len, d_model, kernel_size, pool_size, channel_rate, num_heads, activation, dropout):
+        super(M01, self).__init__()
+        self.main = Main(network_depth, bottleneck_layers, input_size, max_len, d_model, kernel_size, pool_size, channel_rate, num_heads, activation, dropout)
+        self.map = MapUnembed(d_model, activation)
+        self.seq = SeqUnembed(d_model, activation)
+        self.switch("seq", True, True)
 
-    def set(self, program:str):
-        self.program = program
-        if program == "full":
-            for param in self.parameters():
-                param.requires_grad = True
-        elif program == "main":
+    def switch(self, route:str, main_grad:bool, unembed_grad:bool):
+        self.route = route
+        if main_grad:
             for param in self.main.parameters():
-                param.requires_grad = True
-            for param in self.auxiliary.parameters():
-                param.requires_grad = False
-        elif program == "auxiliary":
-            for param in self.main.parameters():
-                param.requires_grad = False
-            for param in self.auxiliary.parameters():
                 param.requires_grad = True
         else:
-            raise ValueError("invalid program")
+            for param in self.main.parameters():
+                param.requires_grad = False
         
-    def forward(self, inputs, bpps):
-        if (self.program == "full") or (self.program == "main"):
-            x = self.main(inputs)
-            x = self.auxiliary(x)
-        elif self.program == "auxiliary":
-            x = self.auxiliary(bpps)
+        if unembed_grad and self.route == "seq":
+            for param in self.seq.parameters():
+                param.requires_grad = True
+            for param in self.map.parameters():
+                param.requires_grad = False
+        elif unembed_grad and self.route == "map":
+            for param in self.seq.parameters():
+                param.requires_grad = False
+            for param in self.map.parameters():
+                param.requires_grad = True
         else:
-            raise ValueError("invalid program")
+            for param in self.seq.parameters():
+                param.requires_grad = False
+            for param in self.map.parameters():
+                param.requires_grad = False
+        
+    def forward(self, inputs):
+        if self.route == "map":
+            x = self.main(inputs)
+            x = self.map(x)
+        elif self.route == "seq":
+            x = self.main(inputs)
+            x = self.seq(x)
+        else:
+            raise ValueError("invalid route")
         return x
 
 if __name__ == "__main__":
-    model = A01({"network_depth": 4, "bottleneck_layers": 4, "input_size": 7, "max_len": 4096, "d_model": 64, "kernel_size": 3, "pool_size": 2, "channel_rate": 2, "num_heads": 16, "activation": "GELU", "dropout": 0.1}, {"hidden_size": 16, "activation": "GELU"}).to(torch.device("cuda"))
-    x = torch.randn(16, 7, 4000).to(torch.device("cuda"))
+    model = M01(3, 3, 7, 4096, 64, 3, 4, 2, 16, "GELU", 0.1).to(torch.device("cuda"))
+    x = torch.randn(1, 7, 4000).to(torch.device("cuda"))
     y = model(x)
     print(y.shape)

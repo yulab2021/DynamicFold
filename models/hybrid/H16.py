@@ -6,7 +6,7 @@ class H16(nn.Module):
     def __init__(self, d_model, input_size, max_len, activation, kernel_sizes, num_heads, dropout):
         super(H16, self).__init__()
         self.embed = modules.Embedding1D(input_size, d_model, "conv", [4 * d_model], activation)
-        self.pe = modules.PositionalEncoding1D(d_model, max_len, convolutional=True)
+        self.pe = modules.PositionalEncoding1D(d_model, max_len)
         
         self.memory = Memory(d_model, activation, num_heads, dropout)
         self.blocks = nn.ModuleList()
@@ -16,20 +16,20 @@ class H16(nn.Module):
             self.blocks.append(Block(d_model, kernel_size, padding, 1, activation, dropout))
             self.memories.append(Memory(d_model, activation, num_heads, dropout))
         
-        self.unembed = modules.MultiConv1D(d_model, [4 * d_model], 1, 1, 0, 1, 1, activation, dropout)
+        self.unembed = modules.MLP(d_model, [4 * d_model], 1, activation)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x, logits=False):
         x = self.embed(x)
-        mem = self.pe(torch.zeros_like(x))
-        x, mem = self.memory(x, mem)
+        mem = self.pe(torch.zeros_like(x).permute(0, 2, 1))
+        mem = self.memory(x, mem)
         
         for block, memory in zip(self.blocks, self.memories):
             x = block(x)
-            x, mem = memory(x, mem)
+            mem = memory(x, mem)
         
-        x = self.unembed(x)
-        x = x.squeeze(1)
+        x = self.unembed(mem)
+        x = x.squeeze(2)
         if logits:
             return x
         else:
@@ -40,17 +40,12 @@ class Memory(nn.Module):
     def __init__(self, d_model, activation, num_heads, dropout):
         super(Memory, self).__init__()
         fn = getattr(nn, activation)
-        self.input = nn.TransformerDecoderLayer(d_model, num_heads, 4 * d_model, activation=fn(), batch_first=True, dropout=dropout)
-        self.output = nn.TransformerDecoderLayer(d_model, num_heads, 4 * d_model, activation=fn(), batch_first=True, dropout=dropout)
+        self.attn = nn.TransformerDecoderLayer(d_model, num_heads, 4 * d_model, activation=fn(), batch_first=True, dropout=dropout)
 
     def forward(self, x, mem):
         x = x.permute(0, 2, 1)
-        mem = mem.permute(0, 2, 1)
-        mem = self.input(x, mem)
-        x = self.output(mem, x)
-        x = x.permute(0, 2, 1)
-        mem = mem.permute(0, 2, 1)
-        return x, mem
+        mem = self.attn(x, mem)
+        return mem
 
 class Block(nn.Module):
     def __init__(self, d_model, kernel_size=3, padding=1, stride=1, activation="GELU", dropout=0.1):
@@ -73,7 +68,7 @@ class Block(nn.Module):
         return x
     
 if __name__ == "__main__":
-    model = H16(256, 7, 4096, "GELU", [3, 5, 5, 3], 4, 0.1).to(torch.device("cuda"))
-    x = torch.randn(8, 7, 4000).to(torch.device("cuda"))
+    model = H16(96, 7, 4096, "GELU", [3, 5, 5, 3], 4, 0.1).to(torch.device("cuda"))
+    x = torch.randn(16, 7, 4000).to(torch.device("cuda"))
     y = model(x)
     print(y.shape)

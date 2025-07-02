@@ -218,6 +218,10 @@ class Checkpoint:
         
         return model, optimizer
     
+    def clear(self):
+        self.checkpoint["Metadata"]["Evaluations"] = None
+        self.checkpoint["Metadata"]["Losses"] = {"Train": list(), "Val": list()}
+    
     def update(self, losses:dict[str,float], delta_epochs:int):
         self.checkpoint["Metadata"]["Time"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.checkpoint["Metadata"]["Losses"] = extend_dict(self.checkpoint["Metadata"]["Losses"], losses)

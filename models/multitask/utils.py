@@ -61,24 +61,16 @@ def noisy_argsort(sequence:list[int], noise_scale:float):
     sequence = np.array(sequence) + np.random.uniform(-noise_scale, noise_scale, len(sequence))
     return np.argsort(sequence)
 
-def collate_batch(batch:list[tuple[torch.Tensor|str]]):
-    keys, bpps, Xs, ys = zip(*batch)
-    max_len = max([y.shape[0] for y in ys])
-    bpps = [F.pad(bpp, (0, max_len - bpp.shape[0], 0, max_len - bpp.shape[1]), "constant", 0) for bpp in bpps]
-    Xs = [F.pad(X, (0, max_len - X.shape[1]), "constant", 0) for X in Xs]
-    ys = [F.pad(y, (0, max_len - y.shape[0]), "constant", 0) for y in ys]
-    bpps = torch.stack(bpps)
-    Xs = torch.stack(Xs)
-    ys = torch.stack(ys)
-    return keys, bpps, Xs, ys
-
 class RNADataset(utils.Dataset):
-    def __init__(self, keys:list[str], bpps:list[str], Xs:list[np.ndarray], ys:list[np.ndarray]):
-        assert len(keys) == len(bpps) == len(Xs) == len(ys)
+    def __init__(self, keys:list[str], cursor:sqlite3.Cursor, query:str, Xs:list[np.ndarray], ys:list[np.ndarray], route:str):
+        assert len(keys) == len(Xs) == len(ys)
         self.keys = keys
-        self.bpps = bpps
+        self.bpps = dict()
+        self.cursor = cursor
+        self.query = query
         self.Xs = Xs
         self.ys = ys
+        self.route = route
 
     def __len__(self):
         return len(self.keys)
@@ -86,12 +78,38 @@ class RNADataset(utils.Dataset):
     def entry_lengths(self):
         return [y.shape[0] for y in self.ys]
 
+    def collate_batch(self, batch:list[tuple[torch.Tensor|str]]):
+        keys, Xs, ys = zip(*batch)
+        max_len = max([X.shape[1] for X in Xs])
+        if self.route == "map":
+            ys = [F.pad(y, (0, max_len - y.shape[0], 0, max_len - y.shape[1]), "constant", 0) for y in ys]
+        elif self.route == "seq":
+            ys = [F.pad(y, (0, max_len - y.shape[0]), "constant", 0) for y in ys]
+        else:
+            raise ValueError("invalid route")
+        Xs = [F.pad(X, (0, max_len - X.shape[1]), "constant", 0) for X in Xs]
+        Xs = torch.stack(Xs)
+        ys = torch.stack(ys)
+        return keys, Xs, ys
+
     def __getitem__(self, index:int):
         key = self.keys[index]
-        bpp = self.bpps[index].to(dm.device).to_dense()
         X = torch.tensor(self.Xs[index], dtype=torch.float32, device=dm.device)
-        y = torch.tensor(self.ys[index], dtype=torch.float32, device=dm.device)
-        return key, bpp, X, y
+        if self.route == "map":
+            if key in self.bpps:
+                bpp = self.bpps[key]
+            else:
+                self.cursor.execute(self.query, (key,))
+                bpp = io.BytesIO(self.cursor.fetchone()[0])
+                bpp = torch.load(bpp, map_location="cpu", weights_only=False)
+                self.bpps[key] = bpp
+            bpp = bpp.to(dm.device).to_dense()
+            return key, X, bpp
+        elif self.route == "seq":
+            y = torch.tensor(self.ys[index], dtype=torch.float32, device=dm.device)
+            return key, X, y
+        else:
+            raise ValueError("invalid route")
 
 class LengthAwareSampler(utils.Sampler):
     def __init__(self, dataset:RNADataset, batch_size:int, noise_scale:float):
@@ -110,20 +128,20 @@ class LengthAwareSampler(utils.Sampler):
         return self.len
 
 class Dataset:
-    def __init__(self, dataset_csv:str, database_db:str, table_name:str, bootstrap:int, feature_list:list[str], bpp_column:str, val_size:float, test_size:float, seed:int, batch_size:int, noise_scale:float):
+    def __init__(self, dataset_csv:str, database_db:str, table_name:str, bootstrap:int, feature_list:list[str], bpp_column:str, val_size:float, test_size:float, seed:int, batch_size:int, noise_scale:float, route:str):
+        self.route = route
         self.dataset = pd.read_csv(dataset_csv)
         self.conn = sqlite3.connect(database_db)
         self.cursor = self.conn.cursor()
-        self.table_name = table_name
+        self.query = f"SELECT {bpp_column} FROM {table_name} WHERE SeqID = ?"
         if bootstrap > 0:
             self.dataset = self.dataset.sample(n=bootstrap, replace=True)
-        self.load(feature_list, bpp_column)
+        self.load(feature_list)
         self.split(val_size, test_size, seed, batch_size, noise_scale)
 
-    def load(self, feature_list:list[str], bpp_column:str):
+    def load(self, feature_list:list[str]):
         self.keys = list()
         self.ref_names = list()
-        self.bpps = list()
         self.Xs = list()
         self.ys = list()
 
@@ -132,20 +150,16 @@ class Dataset:
             for feature in feature_list:
                 X.append(orjson.loads(row[feature]))
             y = orjson.loads(row["RT"])
-            self.cursor.execute(f"SELECT {bpp_column} FROM {self.table_name} WHERE SeqID = ?", (row["SeqID"],))
-            bpp = io.BytesIO(self.cursor.fetchone()[0])
 
             X = np.array(X)
             y = np.array(y)
-            bpp = torch.load(bpp, map_location="cpu", weights_only=False)
             
             self.keys.append(row["SeqID"])
             self.ref_names.append(row["RefName"])
-            self.bpps.append(bpp)
             self.Xs.append(X)
             self.ys.append(y)
 
-        return self.keys, self.ref_names, self.bpps, self.Xs, self.ys
+        return self.keys, self.ref_names, self.Xs, self.ys
 
     def split(self, val_size:float, test_size:float, seed:int, batch_size:int, noise_scale:float):
         ref_names = dict()
@@ -159,21 +173,25 @@ class Dataset:
             self.indices[dataset_type] = np.isin(self.ref_names, ref_names[dataset_type])
             data = RNADataset(
                 [value for value, index in zip(self.keys, self.indices[dataset_type]) if index],
-                [value for value, index in zip(self.bpps, self.indices[dataset_type]) if index],
+                self.cursor,
+                self.query,
                 [value for value, index in zip(self.Xs, self.indices[dataset_type]) if index],
-                [value for value, index in zip(self.ys, self.indices[dataset_type]) if index]
+                [value for value, index in zip(self.ys, self.indices[dataset_type]) if index],
+                self.route
             )
             self.dataloaders[dataset_type] = utils.DataLoader(data, batch_size=1, shuffle=True)
 
         batch_data = RNADataset(
             [value for value, index in zip(self.keys, self.indices["Train"]) if index],
-            [value for value, index in zip(self.bpps, self.indices["Train"]) if index],
+            self.cursor,
+            self.query,
             [value for value, index in zip(self.Xs, self.indices["Train"]) if index],
-            [value for value, index in zip(self.ys, self.indices["Train"]) if index]
+            [value for value, index in zip(self.ys, self.indices["Train"]) if index],
+            self.route
         )
         if batch_size > 1:
             batch_sampler = LengthAwareSampler(batch_data, batch_size, noise_scale)
-            self.dataloaders["Batch"] = utils.DataLoader(batch_data, batch_sampler=batch_sampler, collate_fn=collate_batch)
+            self.dataloaders["Batch"] = utils.DataLoader(batch_data, batch_sampler=batch_sampler, collate_fn=batch_data.collate_batch)
         else:
             self.dataloaders["Batch"] = self.dataloaders["Train"]
 
@@ -211,7 +229,6 @@ class Checkpoint:
                     "Epoch": 0, # 1-based
                     "Evaluations": None,
                     "Losses": {
-                        "Program": list(),
                         "Train": list(),
                         "Val": list()
                     }
@@ -236,6 +253,10 @@ class Checkpoint:
         
         return model, optimizer
     
+    def clear(self):
+        self.checkpoint["Metadata"]["Evaluations"] = None
+        self.checkpoint["Metadata"]["Losses"] = {"Train": list(), "Val": list()}
+    
     def update(self, losses:dict[str,float], delta_epochs:int):
         self.checkpoint["Metadata"]["Time"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.checkpoint["Metadata"]["Losses"] = extend_dict(self.checkpoint["Metadata"]["Losses"], losses)
@@ -258,12 +279,12 @@ class Checkpoint:
         self.checkpoint["Metadata"]["Serial"] = serial
         return md5sum
 
-    def dump(self, model:nn.Module, optimizer:optim.Optimizer, program:str, output_dir:str):
+    def dump(self, model:nn.Module, optimizer:optim.Optimizer, output_dir:str):
         self.checkpoint["ModelState"] = model.state_dict()
         self.checkpoint["OptimizerState"] = optimizer.state_dict()
         serial = self.checksum()
         self.checkpoint["Metadata"]["Serial"] = serial
-        torch.save(self.checkpoint, f"{output_dir}/{program}.pt")
+        torch.save(self.checkpoint, f"{output_dir}/checkpoint.pt")
         print("checkpoint saved")
         return serial
 
@@ -278,13 +299,13 @@ class Trainer:
         self.dataset = dataset
         self.checkpoint = checkpoint
 
-    def train(self, model:nn.Module, optimizer:optim.Optimizer, criterion:nn.Module, program:str):
+    def train(self, model:nn.Module, optimizer:optim.Optimizer, criterion:nn.Module):
         model.train()
-        model.set(program)
+        self.dataset.dataloaders["Batch"]
         train_loss = 0.0
-        for _, bpps, inputs, labels in tqdm(self.dataset.dataloaders["Batch"], desc=f"Training"):
+        for _, inputs, labels in tqdm(self.dataset.dataloaders["Batch"], desc=f"Training"):
             optimizer.zero_grad()
-            outputs = model(inputs, bpps)
+            outputs = model(inputs)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -293,8 +314,8 @@ class Trainer:
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
-            for _, bpps, inputs, labels in tqdm(self.dataset.dataloaders["Val"], desc=f"Validating"):
-                outputs = model(inputs, bpps)
+            for _, inputs, labels in tqdm(self.dataset.dataloaders["Val"], desc=f"Validating"):
+                outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 val_loss += loss.item()
 
@@ -303,15 +324,14 @@ class Trainer:
 
         return model, train_loss, val_loss
     
-    def test(self, model:nn.Module, criterion:nn.Module, dataset_type:str, program:str):
+    def test(self, model:nn.Module, criterion:nn.Module, dataset_type:str):
         results = {"SeqID": list(), "Predictions": list(), "Score": list(), "Dataset": list()}
         model.eval()
-        model.set(program)
         
         scores = list()
         with torch.no_grad():
-            for keys, bpps, inputs, labels in tqdm(self.dataset.dataloaders[dataset_type], desc=f"Testing [{dataset_type} Set]"):
-                outputs = model(inputs, bpps).cpu().numpy()
+            for keys, inputs, labels in tqdm(self.dataset.dataloaders[dataset_type], desc=f"Testing [{dataset_type} Set]"):
+                outputs = model(inputs).cpu().numpy()
                 labels = labels.cpu().numpy()
                 for key, label, output in zip(keys, labels, outputs):
                     score = criterion(output, label)
@@ -323,35 +343,35 @@ class Trainer:
         evaluation = np.mean(scores)
         return results, evaluation
 
-    def autopilot(self, model:nn.Module, optimizer:optim.Optimizer, loss_fn:str, programs:dict[str,int], tolerance:float, output_dir:str):
+    def autopilot(self, model:nn.Module, optimizer:optim.Optimizer, loss_fn:str, num_epochs:int, tolerance:float, output_dir:str):
         model = model.to(dm.device)
         criterion = getattr(nn, loss_fn)()
+        self.checkpoint.clear()
 
-        for i, (program, program_epochs) in enumerate(programs.items()):
-            for j in range(program_epochs):
-                print(f"== Program {i + 1}/{len(programs)}, Epoch {j + 1}/{program_epochs}: {program} ==")
-                model, train_loss, val_loss = self.train(model, optimizer, criterion, program)
-                print(f"training loss: {train_loss:.4f},", f"validation loss: {val_loss:.4f}")
+        for i in range(num_epochs):
+            print(f"== Epoch {i + 1}/{num_epochs} ==")
+            model, train_loss, val_loss = self.train(model, optimizer, criterion)
+            print(f"training loss: {train_loss:.4f},", f"validation loss: {val_loss:.4f}")
 
-                val_losses = [l for p, l in zip(self.checkpoint.checkpoint["Metadata"]["Losses"]["Program"], self.checkpoint.checkpoint["Metadata"]["Losses"]["Val"]) if p == program]
-                best_val_loss = min(val_losses, default=1.0)
-                self.checkpoint.update({"Program": [program], "Train": [train_loss], "Val": [val_loss]}, 1)
+            best_val_loss = min(self.checkpoint.checkpoint["Metadata"]["Losses"]["Val"], default=1.0)
+            self.checkpoint.update({"Train": [train_loss], "Val": [val_loss]}, 1)
 
-                if val_loss < best_val_loss + tolerance:
-                    self.checkpoint.dump(model, optimizer, program, output_dir)
-                self.checkpoint.report(output_dir)
+            if val_loss < best_val_loss + tolerance:
+                self.checkpoint.dump(model, optimizer, output_dir)
+            self.checkpoint.report(output_dir)
 
         return model
         
-    def evaluate(self, model:nn.Module, program:str, evaluation_fn:str, dataset_types:list[str], output_dir:str, report:bool=True):
+    def evaluate(self, model:nn.Module, evaluation_fn:str, dataset_types:list[str], output_dir:str, report:bool=True):
         model = model.to(dm.device)
         criterion = getattr(metrics, evaluation_fn)
+        self.checkpoint.clear()
 
         outputs = {"SeqID": list(), "Predictions": list(), "Score": list(), "Dataset": list()}
         evaluations = dict()
     
         for dataset_type in dataset_types:
-            output, evaluations[dataset_type] = self.test(model, criterion, dataset_type, program)
+            output, evaluations[dataset_type] = self.test(model, criterion, dataset_type)
             outputs = extend_dict(outputs, output)
 
         self.dataset.dump(outputs, output_dir, with_original=False)

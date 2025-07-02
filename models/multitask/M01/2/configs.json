@@ -1,0 +1,29 @@
+{
+    "Mode": "Resume",
+    "Module": "M01",
+    "CheckpointPT": "M01/1/checkpoint.pt",
+    "Route": "seq",
+    "SwitchArgs": {
+        "main_grad": false,
+        "unembed_grad": true
+    },
+    "DatasetArgs": {
+        "dataset_csv": "../../data/assembly/assembly.csv",
+        "database_db": "../../data/assembly/assembly.db",
+        "table_name": "assembly",
+        "bootstrap": 0,
+        "feature_list": ["A", "C", "G", "U", "RD", "ER", "MR"],
+        "bpp_column": "UFoldBPP",
+        "val_size": 0.15,
+        "test_size": 0.15,
+        "seed": 42,
+        "batch_size": 8,
+        "noise_scale": 4
+    },
+   "AutopilotArgs": {
+        "loss_fn": "L1Loss",
+        "num_epochs": 4,
+        "tolerance": 0,
+        "output_dir": "M01/2"
+    }
+}

@@ -11,21 +11,25 @@ if args.device is not None:
     utils.dm.set(args.device)
 
 configs:dict = orjson.loads(open(args.configs, "r").read())
-dataset = utils.Dataset(**configs["DatasetArgs"])
+dataset = utils.Dataset(**configs["DatasetArgs"], route=configs["Route"])
 checkpoint = utils.Checkpoint(checkpoint_pt=configs.get("CheckpointPT"), model_args=configs.get("ModelArgs"), optimizer_args=configs.get("OptimizerArgs"))
 trainer = utils.Trainer(dataset, checkpoint)
 
 if configs["Mode"] == "New":
     model, optimizer = checkpoint.load(configs["Module"], configs.get("Model"), configs.get("Optimizer"), model_state=False, optimizer_state=False)
+    model.switch(configs["Route"], **configs["SwitchArgs"])
     model = trainer.autopilot(model, optimizer, **configs["AutopilotArgs"])
 elif configs["Mode"] == "Resume":
     model, optimizer = checkpoint.load(configs["Module"], configs.get("Model"), configs.get("Optimizer"), model_state=True, optimizer_state=True)
+    model.switch(configs["Route"], **configs["SwitchArgs"])
     model = trainer.autopilot(model, optimizer, **configs["AutopilotArgs"])
 elif configs["Mode"] == "Transfer":
     model, optimizer = checkpoint.load(configs["Module"], configs.get("Model"), configs.get("Optimizer"), model_state=True, optimizer_state=False)
+    model.switch(configs["Route"], **configs["SwitchArgs"])
     model = trainer.autopilot(model, optimizer, **configs["AutopilotArgs"])
 elif configs["Mode"] == "Evaluate":
     model, _ = checkpoint.load(configs["Module"], configs.get("Model"), configs.get("Optimizer"), model_state=True, optimizer_state=False)
+    model.switch(configs["Route"], **configs["SwitchArgs"])
     model = trainer.evaluate(model, **configs["EvaluateArgs"])
 else:
     raise ValueError(f"invalid mode: {configs["Mode"]}")

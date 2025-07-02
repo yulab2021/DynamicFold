@@ -1,6 +1,5 @@
 ## Metadata
 
-- Journal: Nature Communications
 - Type: Article
 - Limit: 2000 words, 200 abstract words, 15 title, 4 figures, 70 references
 - Title: **TODO**
@@ -94,3 +93,8 @@
 ## Supplementary Figure 4: Performance Analysis of Best Model
 
 - (From Figure 2C): [selective supplementary]
+
+# Additional
+
+- Dynamicity: Permutation test for MMAE per transcript
+- PCA plot: sequence pred vs true vs RN to 2D graph: transcript example

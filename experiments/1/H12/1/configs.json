@@ -1,7 +1,7 @@
 {
     "Mode": "New",
-    "Module": "H16",
-    "Model": "H16",
+    "Module": "H12",
+    "Model": "H12",
     "Optimizer": "Adam",
     "DatasetArgs": {
         "dataset_csv": "../../data/assembly/assembly.csv",
@@ -14,17 +14,18 @@
         "noise_scale": 4
     },
     "ModelArgs": {
-        "d_model": 96,
+        "d_model": 512,
         "input_size": 7,
         "max_len": 4096,
+        "encoder_layers": 6,
+        "decoder_layers": 6,
+        "num_heads": 8,
         "activation": "GELU",
-        "kernel_sizes": [3, 5, 5, 3],
-        "num_heads": 4,
         "dropout": 0.1
     },
     "OptimizerArgs": {
         "lr": 1e-4,
-        "amsgrad": true
+        "amsgrad": false
     },
     "AutopilotArgs": {
         "loss_fn": "L1Loss",
@@ -32,6 +33,6 @@
         "max_epochs": 64,
         "min_epochs": 8,
         "tolerance": 0,
-        "output_dir": "H16/2"
+        "output_dir": "H12/1"
     }
 }

@@ -1,8 +1,7 @@
 {
-    "Mode": "New",
+    "Mode": "Resume",
     "Module": "M01",
-    "Model": "M01",
-    "Optimizer": "Adam",
+    "CheckpointPT": "M01/4/checkpoint.pt",
     "Route": "map",
     "SwitchArgs": {
         "main_grad": true,
@@ -21,27 +20,10 @@
         "batch_size": 8,
         "noise_scale": 4
     },
-    "ModelArgs": {
-        "network_depth": 3,
-        "bottleneck_layers": 3,
-        "input_size": 7,
-        "max_len": 4096,
-        "d_model": 64,
-        "kernel_size": 3,
-        "pool_size": 4,
-        "channel_rate": 2,
-        "num_heads": 16,
-        "activation": "GELU",
-        "dropout": 0.1
-    },
-    "OptimizerArgs": {
-        "lr": 1e-4,
-        "amsgrad": false
-    },
     "AutopilotArgs": {
         "loss_fn": "BCELoss",
-        "num_epochs": 4,
+        "num_epochs": 16,
         "tolerance": 0,
-        "output_dir": "M01/1"
+        "output_dir": "M01/5"
     }
 }

@@ -14,12 +14,12 @@
         "noise_scale": 4
     },
     "ModelArgs": {
-        "d_model": 96,
+        "d_model": 512,
         "input_size": 7,
         "max_len": 4096,
         "activation": "GELU",
         "kernel_sizes": [3, 5, 5, 3],
-        "num_heads": 4,
+        "num_heads": 8,
         "dropout": 0.1
     },
     "OptimizerArgs": {
