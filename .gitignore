@@ -9,3 +9,5 @@ __pycache__/
 *.pt
 *.pkl
 TODO
+archive
+experiments

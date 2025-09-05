@@ -22,15 +22,14 @@
   - Violin plot: Base type proportion w.r.t. dataset entry
   - Stacked bar plot: Motif coverage proportion w.r.t. motif length
   - Histogram: Sequence valid length distribution w.r.t. dataset entry
-  - KDE plot: RNA-Seq mean depth distribution + icSHAPE mean background base density distribution w.r.t. dataset entry
-  - KDE plot: icSHAPE reactivity + RN prediction distribution w.r.t. base
+  - Histplot: RNA-Seq mean depth distribution + icSHAPE mean background base density distribution w.r.t. dataset entry
+  - Histogram: icSHAPE reactivity distribution w.r.t. base
   - Pie chart: Entry biotype w.r.t. dataset entry
-  - KDE plot: strip start + strip end + gap distribution w.r.t. dataset entry
+  - Histplot: strip start + strip end distribution w.r.t. dataset entry // all gaps are 0 due filtering
   - Histogram: mean end rate distribution w.r.t. dataset entry
   - Histogram: mean mismatch rate distribution w.r.t. dataset entry
   - KDE heatmap: Label vs. features w.r.t. base
   - Violin plot: icSHAPE reactivity distribution w.r.t. base, grouped by base type
-  - Violin plot & significance test: Features distribution w.r.t. base, grouped by rasterized label and features // rasterization: split by median, split by quartile
 - 1D: Multi-panel line plot: Training + validation loss w.r.t. epoch for all deep models
 - 1E: Violin plot: MAE comparison of basewise models (LR, SVR, RF, XGB) + deep models (H08~H13) + RN
 

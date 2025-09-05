@@ -2,10 +2,11 @@
     "PerformanceArgs": {
         "dataset_csv": "../../../data/assembly/assembly.csv",
         "outputs_csvs": {
-            "H08": "H08/1/outputs.csv",
-            "H15": "H15/1/outputs.csv",
-            "H16": "H16/1/outputs.csv",
-            "H17": "H17/1/outputs.csv"
+            "H08": "H08/2/outputs.csv",
+            "H15": "H15/2/outputs.csv",
+            "H16": "H16/2/outputs.csv",
+            "H20": "H20/2/outputs.csv",
+            "H21": "H20/2/outputs.csv"
         },
         "dataset_types": ["Train", "Val", "Test"],
         "title": "Assembly",
@@ -13,10 +14,11 @@
     },
     "LossArgs": {
         "report_jsons": {
-            "H08": "H08/1/report.json",
-            "H15": "H15/1/report.json",
-            "H16": "H16/1/report.json",
-            "H17": "H17/1/report.json"
+            "H08": "H08/2/report.json",
+            "H15": "H15/2/report.json",
+            "H16": "H16/2/report.json",
+            "H20": "H20/2/report.json",
+            "H21": "H20/2/report.json"
         },
         "loss_types": ["TrainLoss", "ValLoss"],
         "title": "Assembly",

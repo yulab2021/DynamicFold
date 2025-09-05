@@ -1,11 +1,11 @@
 {
     "DatasetCSV": "../../data/assembly/assembly.csv",
     "Models": {
-        "Linear Regression": "LR/evaluations.csv",
-        "Multi-Layer Perceptron": "MLP/evaluations.csv",
-        "Random Forest Regression": "RF/evaluations.csv",
-        "Support Vector Regression": "SVR/evaluations.csv",
-        "XGBoost": "XGB/evaluations.csv"
+        "Linear Regression": "LR/outputs.csv",
+        "Multi-Layer Perceptron": "MLP/outputs.csv",
+        "Random Forest Regression": "RF/outputs.csv",
+        "Support Vector Regression": "SVR/outputs.csv",
+        "XGBoost": "XGB/outputs.csv"
     },
     "OutputFigure": "evaluations/assembly.png"
 }

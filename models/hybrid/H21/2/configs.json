@@ -1,7 +1,7 @@
 {
     "Mode": "Evaluate",
-    "Module": "H08",
-    "CheckpointPT": "H08/1/checkpoint.pt",
+    "Module": "H21",
+    "CheckpointPT": "H21/1/checkpoint.pt",
     "DatasetArgs": {
         "dataset_csv": "../../data/assembly/assembly.csv",
         "bootstrap": 0,
@@ -15,6 +15,6 @@
     "EvaluateArgs": {
         "evaluation_fn": "mean_absolute_error",
         "dataset_types": ["Train", "Val", "Test"],
-        "output_dir": "H08/2"
+        "output_dir": "H21/2"
     }
 }

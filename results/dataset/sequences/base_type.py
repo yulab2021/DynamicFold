@@ -8,7 +8,7 @@ output_plot = sys.argv[2]
 dataset = pd.read_csv(dataset_csv)
 proportions = {"A": list(), "C": list(), "G": list(), "U": list()}
 
-for seq in dataset["SQ"]:
+for seq in dataset["Sequence"]:
     seq = str(seq)
     length = len(seq)
     for base in proportions:
@@ -20,4 +20,5 @@ plt.xticks(range(len(proportions)), list(proportions.keys()))
 plt.axhline(y=0.25, color='black', linestyle='--', alpha=0.8, linewidth=1)
 plt.ylabel("Proportion")
 plt.title("Distribution of Base Proportions per Sequence")
+plt.tight_layout()
 plt.savefig(output_plot)

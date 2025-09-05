@@ -32,6 +32,6 @@
         "max_epochs": 64,
         "min_epochs": 8,
         "tolerance": 0,
-        "output_dir": "H16/2"
+        "output_dir": "H16/1"
     }
 }

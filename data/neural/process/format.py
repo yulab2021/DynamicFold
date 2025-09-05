@@ -1,6 +1,7 @@
 # format.py
 
 import numpy as np
+import pandas as pd
 import sys
 import sqlite3
 import utils
@@ -13,11 +14,12 @@ label_csv = sys.argv[1]
 metrics_db = sys.argv[2]
 rtstops_db = sys.argv[3]
 reference_fasta = sys.argv[4]
-alpha = float(sys.argv[5]) # 0.25
-strip = ast.literal_eval(sys.argv[6])
-dataset_db = sys.argv[7]
-table_name = sys.argv[8]
-batch_size = int(sys.argv[9])
+depths_csv = sys.argv[5]
+alpha = float(sys.argv[6]) # 0.25
+strip = ast.literal_eval(sys.argv[7])
+dataset_db = sys.argv[8]
+table_name = sys.argv[9]
+batch_size = int(sys.argv[10])
 
 def onehot_encode(sequence):
     tokens = {'A': [1, 0, 0, 0], 'C': [0, 1, 0, 0], 'G': [0, 0, 1, 0], 'U': [0, 0, 0, 1], 'N': [0.25, 0.25, 0.25, 0.25]}
@@ -48,6 +50,24 @@ def winsorize_scale(scores):
 
     results = {key: float(value) for key, value in zip(keys, scaled_values)}
     return results
+
+def log10_transform(data, negative, eps):
+    keys = list(data.keys())
+    values = list(data.values())
+
+    values = np.array(values)
+    if negative:
+        values = (-np.log10(values + eps)).tolist()
+    else:
+        values = np.log10(values + eps).tolist()
+    
+    results = dict(zip(keys, values))
+
+    return results
+
+def cpm_normalize(data, srr):
+    data = 1e6 * data / depths[srr]
+    return data
 
 def filter_entries(keys):
     ref_names = dict()
@@ -140,15 +160,8 @@ def load_reactivity(sample, ref_name):
 def load_metrics(sample, ref_name):
     srr_list = labels.get_srr_list({"Sample": [sample], "Experiment": ["RNA-Seq"]})
     
-    keys = list()
-    for srr in srr_list:
-        key = f"{sample}|RNA-Seq|NA|{srr}|{ref_name}"
-        if key in metrics_keys:
-            keys.append(key)
-    
+    keys = {srr: f"{sample}|RNA-Seq|NA|{srr}|{ref_name}" for srr in srr_list}
     num_rep = len(keys)
-    if num_rep == 0:
-        raise ValueError("no RNA-Seq data")
     
     read_depth = dict()
     end_depth = dict()
@@ -156,7 +169,7 @@ def load_metrics(sample, ref_name):
     mismatch_count = dict()
     mismatch_rate = dict()
 
-    for key in keys:
+    for srr, key in keys.items():
         metrics_entry = metrics.read(key)
         for index, pos in enumerate(metrics_entry["PS"]):
             if pos not in read_depth:
@@ -165,9 +178,9 @@ def load_metrics(sample, ref_name):
                 end_depth[pos] = 0
             if pos not in mismatch_count:
                 mismatch_count[pos] = 0
-            read_depth[pos] += metrics_entry["RD"][index] / num_rep
-            end_depth[pos] += metrics_entry["ED"][index] / num_rep
-            mismatch_count[pos] += metrics_entry["MC"][index] / num_rep
+            read_depth[pos] += cpm_normalize(metrics_entry["RD"][index], srr) / num_rep
+            end_depth[pos] += cpm_normalize(metrics_entry["ED"][index], srr) / num_rep
+            mismatch_count[pos] += cpm_normalize(metrics_entry["MC"][index], srr) / num_rep
 
     for pos in read_depth:
         end_rate[pos] = end_depth[pos] / read_depth[pos]
@@ -176,7 +189,10 @@ def load_metrics(sample, ref_name):
     total_depth = np.sum(list(read_depth.values()))
     total_end_rate = np.sum(list(end_rate.values()))
     total_mismatch_rate = np.sum(list(mismatch_rate.values()))
-    read_depth = winsorize_scale(read_depth)
+    
+    read_depth = log10_transform(read_depth, False, 1.0)
+    end_rate = log10_transform(end_rate, True, 1e-6)
+    mismatch_rate = log10_transform(mismatch_rate, True, 1e-6)
 
     return read_depth, end_rate, mismatch_rate, total_depth, total_end_rate, total_mismatch_rate
 
@@ -258,7 +274,7 @@ def format_entry(args):
 
 labels = utils.Label(label_csv)
 reference_transcriptome = read_fasta(reference_fasta)
-
+depths = pd.read_csv(depths_csv, index_col="SRR")["depth"]
 metrics = utils.Database(metrics_db, "metrics")
 rtstops = utils.Database(rtstops_db, "rtstops")
 executer = utils.Executer()

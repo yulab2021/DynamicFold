@@ -42,7 +42,7 @@ def summarize_counts(motif_counts):
     return completeness
 
 dataset = pd.read_csv(dataset_csv)
-sequences = dataset["SQ"].to_list()
+sequences = dataset["Sequence"].to_list()
 motif_counts = dict()
 
 with mp.Pool(processes=batch_size) as pool:
@@ -63,4 +63,5 @@ plt.bar(keys, remainings, bottom=values, color='lightgrey')
 plt.xlabel("Motif Length")
 plt.ylabel("Coverage")
 plt.title(f"Sequence Motif Diversity")
+plt.tight_layout()
 plt.savefig(output_plot)

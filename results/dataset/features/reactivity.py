@@ -1,24 +1,21 @@
 import sys
 import matplotlib.pyplot as plt
-import seaborn as sns
 import pandas as pd
 import orjson
 
 dataset_csv = sys.argv[1]
-output_plot = sys.argv[2]
+num_bins = int(sys.argv[2])
+output_plot = sys.argv[3]
 
 dataset = pd.read_csv(dataset_csv)
-experimental = list()
-predicted = list()
+reactivity = list()
 for _, row in dataset.iterrows():
-    experimental.extend(orjson.loads(row["RT"]))
-    predicted.extend(orjson.loads(row["RibonanzaNetPredictions"]))
+    reactivity.extend(orjson.loads(row["RT"]))
 
 plt.figure(figsize=(5, 5), dpi=300)
-sns.kdeplot(experimental, fill=True, label="Experimental")
-sns.kdeplot(predicted, fill=True, label="RibonanzaNet")
+plt.hist(reactivity, bins=num_bins, edgecolor="white")
 plt.xlabel("Reactivity Score")
-plt.ylabel("Density")
-plt.legend()
+plt.ylabel("Frequency")
 plt.title("Distribution of icSHAPE Reactivity per Base")
+plt.tight_layout()
 plt.savefig(output_plot)

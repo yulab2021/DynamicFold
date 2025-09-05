@@ -7,10 +7,9 @@ import orjson
 
 dataset_csv = sys.argv[1]
 bootstrap_size = int(sys.argv[2])
-eps = float(sys.argv[3])
-levels = int(sys.argv[4])
-grid_size = int(sys.argv[5])
-output_plot = sys.argv[6]
+levels = int(sys.argv[3])
+grid_size = int(sys.argv[4])
+output_plot = sys.argv[5]
 
 dataset = pd.read_csv(dataset_csv)
 reactivity = list()
@@ -22,13 +21,14 @@ for _, row in dataset.iterrows():
 indices = list(range(len(reactivity)))
 indices = np.random.choice(indices, size=bootstrap_size, replace=True)
 reactivity_sample = np.array(reactivity)[indices]
-mismatch_rate_sample = np.log10(np.array(mismatch_rate)[indices] + eps)
+mismatch_rate_sample = np.log10(np.array(mismatch_rate)[indices] + 1e-6)
 
 plt.figure(figsize=(6, 5), dpi=300)
 sns.kdeplot(x=mismatch_rate_sample, y=reactivity_sample, fill=True, levels=levels, cbar=True, cmap=sns.color_palette("Blues", as_cmap=True), gridsize=grid_size)
-plt.xlim((np.log10(eps), 0))
+plt.xlim((-6, 0))
 plt.ylim((0, 1))
-plt.xlabel(f"$\\log_{{10}}$(Mismatch Rate + {eps})")
+plt.xlabel(f"$\\log_{{10}}$(Mismatch Rate + $10^{{-6}}$)")
 plt.ylabel("Reactivity Score")
 plt.title("Distribution of Mismatch Rate vs. Reactivity Score per Base")
+plt.tight_layout()
 plt.savefig(output_plot)
