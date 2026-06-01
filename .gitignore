@@ -8,6 +8,9 @@ __pycache__/
 *.fai
 *.pt
 *.pkl
+*.png
+*.pdf
 TODO
 archive
 experiments
+outline.md
