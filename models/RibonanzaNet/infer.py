@@ -17,7 +17,7 @@ class RNADatasetRN(Dataset):
         self.conn = sqlite3.connect(dataset_db)
         self.cursor = self.conn.cursor()
         self.table_name = table_name
-        self.tokens={nt: i for i, nt in enumerate('ACGU')}
+        self.tokens={nt: i for i, nt in enumerate('ACGUN')}
 
         self.cursor.execute(f"PRAGMA table_info({self.table_name})")
         col_names = [col[1] for col in self.cursor.fetchall()]
@@ -85,7 +85,8 @@ with torch.no_grad():
             sequence, reactivity = dataset[index]
             sequence = sequence.unsqueeze(0).to(device)
             prediction = model(sequence, torch.ones_like(sequence)).squeeze().cpu().numpy()
-        except KeyError:
+        except KeyError as e:
+            print(f"prediction failed for {index}: {e}")
             continue
         prediction = prediction[:,0].tolist()
         MAE = mean_absolute_error(prediction, reactivity)

@@ -1,0 +1,11 @@
+{
+    "Time": "2025-09-18 22:55:02",
+    "Evaluations": {
+        "Train": 0.20423469949540174,
+        "Test": 0.20498091757778475
+    },
+    "Parameters": {
+        "RF__max_depth": 10,
+        "RF__n_estimators": 256
+    }
+}

@@ -1,6 +1,6 @@
 {
     "PerformanceArgs": {
-        "dataset_csv": "../../../data/assembly/assembly.csv",
+        "dataset_csv": "../../data/assembly/assembly.csv",
         "outputs_csvs": {
             "H08": "H08/2/outputs.csv",
             "H15": "H15/2/outputs.csv",
@@ -14,13 +14,13 @@
     },
     "LossArgs": {
         "report_jsons": {
-            "H08": "H08/2/report.json",
-            "H15": "H15/2/report.json",
-            "H16": "H16/2/report.json",
-            "H20": "H20/2/report.json",
-            "H21": "H20/2/report.json"
+            "H08": "H08/1/report.json",
+            "H15": "H15/1/report.json",
+            "H16": "H16/1/report.json",
+            "H20": "H20/1/report.json",
+            "H21": "H21/1/report.json"
         },
-        "loss_types": ["TrainLoss", "ValLoss"],
+        "loss_types": ["Train", "Val"],
         "title": "Assembly",
         "output_dir": "evaluation"
     }

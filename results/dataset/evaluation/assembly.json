@@ -1,25 +1,32 @@
 {
     "PerformanceArgs": {
         "dataset_csv": "/home/test/DynamicFold/data/assembly/assembly.csv",
-        "evaluations_csvs": {
-            "H08": "H08/1/outputs.csv",
-            "H15": "H15/1/outputs.csv",
-            "H16": "H16/1/outputs.csv",
-            "H17": "H17/1/outputs.csv"
+        "outputs_csvs": {
+            "LR": "/home/test/DynamicFold/models/basewise/LR/outputs.csv",
+            "MLP": "/home/test/DynamicFold/models/basewise/MLP/outputs.csv",
+            "RF": "/home/test/DynamicFold/models/basewise/RF/outputs.csv",
+            "SVR": "/home/test/DynamicFold/models/basewise/SVR/outputs.csv",
+            "XGB": "/home/test/DynamicFold/models/basewise/XGB/outputs.csv",
+            "H08": "/home/test/DynamicFold/models/hybrid/H08/2/outputs.csv",
+            "H15": "/home/test/DynamicFold/models/hybrid/H15/2/outputs.csv",
+            "H16": "/home/test/DynamicFold/models/hybrid/H16/2/outputs.csv",
+            "H20": "/home/test/DynamicFold/models/hybrid/H20/2/outputs.csv",
+            "H21": "/home/test/DynamicFold/models/hybrid/H21/2/outputs.csv"
         },
-        "dataset_types": ["Train", "Val", "Test"],
-        "title": "Assembly",
+        "dataset_types": ["Train", "Test"],
+        "title": "Distribution of MAE per Sequence",
         "output_dir": "."
     },
     "LossArgs": {
         "report_jsons": {
-            "H08": "H08/1/report.json",
-            "H15": "H15/1/report.json",
-            "H16": "H16/1/report.json",
-            "H17": "H17/1/report.json"
+            "H08": "/home/test/DynamicFold/models/hybrid/H08/1/report.json",
+            "H15": "/home/test/DynamicFold/models/hybrid/H15/1/report.json",
+            "H16": "/home/test/DynamicFold/models/hybrid/H16/1/report.json",
+            "H20": "/home/test/DynamicFold/models/hybrid/H20/1/report.json",
+            "H21": "/home/test/DynamicFold/models/hybrid/H21/1/report.json"
         },
-        "loss_types": ["TrainLoss", "ValLoss"],
-        "title": "Assembly",
+        "loss_types": ["Train", "Val"],
+        "title": "Loss",
         "output_dir": "."
     }
 }

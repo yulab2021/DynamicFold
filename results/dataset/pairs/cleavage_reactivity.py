@@ -21,13 +21,13 @@ for _, row in dataset.iterrows():
 indices = list(range(len(reactivity)))
 indices = np.random.choice(indices, size=bootstrap_size, replace=True)
 reactivity_sample = np.array(reactivity)[indices]
-end_rate_sample = np.log10(np.array(end_rate)[indices] + 1e-6)
+end_rate_sample = np.array(end_rate)[indices]
 
 plt.figure(figsize=(6, 5), dpi=300)
 sns.kdeplot(x=end_rate_sample, y=reactivity_sample, fill=True, levels=levels, cbar=True, cmap=sns.color_palette("Blues", as_cmap=True), gridsize=grid_size)
-plt.xlim((-6, 0))
+plt.xlim((0, 6))
 plt.ylim((0, 1))
-plt.xlabel(f"$\\log_{{10}}$(Cleavage Rate + $10^{{-6}}$)")
+plt.xlabel(r"$-\log_{10}$(Cleavage Rate + $10^{-6}$)")
 plt.ylabel("Reactivity Score")
 plt.title("Distribution of Cleavage Rate vs. Reactivity Score per Base")
 plt.tight_layout()

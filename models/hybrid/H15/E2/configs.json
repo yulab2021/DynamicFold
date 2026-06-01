@@ -1,0 +1,20 @@
+{
+    "Mode": "Evaluate",
+    "Module": "H15",
+    "CheckpointPT": "H15/E1/checkpoint.pt",
+    "DatasetArgs": {
+        "dataset_csv": "../../data/assembly/assembly.csv",
+        "bootstrap": 0,
+        "feature_list": ["A", "C", "G", "U", "RD", "ER"],
+        "val_size": 0.15,
+        "test_size": 0.15,
+        "seed": 42,
+        "batch_size": 4,
+        "noise_scale": 4
+    },
+    "EvaluateArgs": {
+        "evaluation_fn": "mean_absolute_error",
+        "dataset_types": ["Train", "Val", "Test"],
+        "output_dir": "H15/E2"
+    }
+}

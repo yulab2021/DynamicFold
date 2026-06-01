@@ -1,0 +1,14 @@
+{
+    "Time": "2025-09-19 02:01:42",
+    "Evaluations": {
+        "Train": 0.20383708518305227,
+        "Test": 0.20434837635527625
+    },
+    "Parameters": {
+        "MLP__activation": "tanh",
+        "MLP__hidden_layer_sizes": [
+            256,
+            256
+        ]
+    }
+}

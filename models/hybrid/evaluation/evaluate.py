@@ -18,7 +18,7 @@ def plot_performances(dataset_csv, outputs_csvs, dataset_types, title, output_di
     for dataset_type in dataset_types:
         for model_name, outputs_csv in outputs_csvs.items():
             predictions_data = pd.read_csv(outputs_csv)
-            MAE = predictions_data.loc[predictions_data["Dataset"] == dataset_type, "MAE"].tolist()
+            MAE = predictions_data.loc[predictions_data["Dataset"] == dataset_type, "Score"].tolist()
             MAEs[model_name] = MAE
 
         plt.figure(figsize=(1.5 * num_models, 5), dpi=300)
@@ -37,7 +37,7 @@ def plot_losses(report_jsons, loss_types, title, output_dir):
     for model_name, loss_json in report_jsons.items():
         report_data = orjson.loads(open(loss_json, "r").read())
         for loss_type in loss_types:
-            losses[loss_type][model_name] = report_data[loss_type]
+            losses[loss_type][model_name] = report_data["Losses"][loss_type]
     
     for loss_type, model_losses in losses.items():
         plt.figure(figsize=(5, 5), dpi=300)

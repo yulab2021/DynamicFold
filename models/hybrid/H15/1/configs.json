@@ -20,7 +20,7 @@
         "activation": "GELU",
         "channel_rate": 2,
         "pool_size": 4,
-        "num_heads": 4,
+        "num_heads": 2,
         "dropout": 0.1
     },
     "OptimizerArgs": {

@@ -1,0 +1,14 @@
+{
+    "Module": "H15",
+    "CheckpointPT": "/home/test/DynamicFold/models/hybrid/H15/1/checkpoint.pt",
+    "DatasetArgs": {
+        "dataset_csv": "/home/test/DynamicFold/data/assembly/assembly.csv",
+        "bootstrap": 0,
+        "feature_list": ["A", "C", "G", "U", "RD", "ER", "MR"],
+        "val_size": 0.15,
+        "test_size": 0.15,
+        "seed": 42,
+        "batch_size": 16,
+        "noise_scale": 4
+    }
+}

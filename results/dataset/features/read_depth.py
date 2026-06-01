@@ -16,7 +16,7 @@ data = {
 
 plt.figure(figsize=(5, 5), dpi=300)
 sns.histplot(data, x="Value", hue="Experiment", bins=num_bins, element="step")
-plt.xlabel("$\\log_{10}$(Mean Read Depth)")
+plt.xlabel(r"$\log_{10}$(Mean Read Depth)")
 plt.ylabel("Frequency")
 plt.title("Distribution of Mean Read Depth per Sequence")
 plt.tight_layout()

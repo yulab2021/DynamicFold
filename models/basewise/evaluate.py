@@ -11,7 +11,7 @@ MAEs["RibonanzaNet"] = benchmark_data["RibonanzaNetMAE"].tolist()
 
 for model_name, evaluations_csv in args["Models"].items():
     predictions_data = pd.read_csv(evaluations_csv)
-    MAE = predictions_data["MAE"].tolist()
+    MAE = predictions_data["Score"].tolist()
     MAEs[model_name] = MAE
 
 plt.figure(figsize=(1.5 * len(args["Models"]), 5), dpi=300)

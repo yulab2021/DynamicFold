@@ -9,11 +9,11 @@ data = pd.read_csv(data_csv)
 diff = dict()
 
 for sample in data["Sample"].unique():
-    diff[sample] = data.loc[data["Sample"] == sample, "MAE"] - data.loc[data["Sample"] == sample, "RibonanzaNetMAE"]
+    diff[sample] = data.loc[data["Sample"] == sample, "Score"] - data.loc[data["Sample"] == sample, "RibonanzaNetMAE"]
 
 diff = dict(sorted(diff.items(), key=lambda x: x[0]))
 
-plt.figure(figsize=(10, 5), dpi=300)
+plt.figure(figsize=(8, 5), dpi=300)
 plt.violinplot(list(diff.values()), positions=list(range(len(diff))), widths=0.8, showmeans=True)
 plt.xticks(range(len(diff)), list(diff.keys()))
 plt.axhline(y=0, color='black', linestyle='--', alpha=0.8, linewidth=1)
